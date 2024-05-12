@@ -1,4 +1,3 @@
-mod button;
 mod game;
 mod game_controls;
 mod game_state;

@@ -9,6 +9,8 @@ use macroquad::{
 use rand::Rng;
 
 use crate::{
+    game_state::GameState,
+    messages::write_game_over,
     tile::Tile,
     utils::{current_time_seconds, get_time_diff},
 };
@@ -42,12 +44,36 @@ pub struct Game {
 
     explosion_texture: Texture2D,
     flag_texture: Texture2D,
+
+    state: GameState,
 }
 
 impl Game {
-    pub async fn random_game(rows: i32, cols: i32) -> Game {
+    pub async fn random_game() -> Game {
         let explosion_texture: Texture2D = load_texture("textures/explosion.png").await.unwrap();
         let flag_texture: Texture2D = load_texture("textures/flag.png").await.unwrap();
+
+        Game {
+            rows: 0,
+            cols: 0,
+            tile_size: TILE_SIZE,
+            tiles: Vec::new(),
+            start_time: 0,
+            initial_mines_count: 0,
+            marked_mines_count: 0,
+
+            state: GameState::NotStarted,
+
+            explosion_texture,
+            flag_texture,
+        }
+    }
+
+    pub fn start(&mut self, rows: i32, cols: i32) {
+        self.rows = rows;
+        self.cols = cols;
+        self.start_time = current_time_seconds();
+        self.state = GameState::Playing;
 
         let mut rng = rand::thread_rng();
 
@@ -58,25 +84,16 @@ impl Game {
         }
 
         let initial_mines_count = tiles.iter().filter(|tile| tile.has_mine).count() as i32;
-
-        let mut game = Game {
-            rows,
-            cols,
-            tile_size: TILE_SIZE,
-            tiles,
-            start_time: current_time_seconds(),
-            initial_mines_count,
-            marked_mines_count: 0,
-
-            explosion_texture,
-            flag_texture,
-        };
-
-        game.update_mines_count();
-        return game;
+        self.initial_mines_count = initial_mines_count;
+        self.tiles = tiles;
+        self.update_mines_count();
     }
 
     pub fn make_move(&mut self, pos: (f32, f32)) {
+        if self.state != GameState::Playing {
+            return;
+        }
+
         let (j, i) = match self.resolve_tile_position(pos) {
             Some(value) => value,
             None => return,
@@ -93,12 +110,17 @@ impl Game {
 
         if tile.has_mine {
             println!("Game over!");
+            self.state = GameState::GameOver;
         } else {
             self.clear_empty_neighbours(i, j);
         }
     }
 
     pub fn mark_tile(&mut self, pos: (f32, f32)) {
+        if self.state != GameState::Playing {
+            return;
+        }
+
         let (j, i) = match self.resolve_tile_position(pos) {
             Some(value) => value,
             None => return,
@@ -118,6 +140,10 @@ impl Game {
         };
     }
 
+    pub fn get_state(&self) -> GameState {
+        self.state
+    }
+
     fn resolve_tile_position(&mut self, pos: (f32, f32)) -> Option<(i32, i32)> {
         let (tile_width, tile_height) = self.get_tile_size();
         let x = pos.0 - SCREEN_MARGIN;
@@ -125,15 +151,20 @@ impl Game {
         let j = (x / tile_width) as i32;
         let i = (y / tile_height) as i32;
         if i < 0 || i >= self.rows || j < 0 || j >= self.cols {
-            return None;
+            None
+        } else {
+            Some((j, i))
         }
-        Some((j, i))
     }
 
     pub fn draw(&self) {
         self.draw_tiles();
         self.write_time();
         self.write_remaining_mines();
+
+        if self.state == GameState::GameOver {
+            write_game_over();
+        }
     }
 
     fn draw_tiles(&self) {
@@ -141,7 +172,7 @@ impl Game {
 
         for i in 0..self.rows {
             for j in 0..self.cols {
-                let index = (i * self.rows + j) as usize;
+                let index = (i * self.cols + j) as usize;
                 self.tiles[index].draw(
                     SCREEN_MARGIN + j as f32 * (tile_width),
                     SCREEN_MARGIN + i as f32 * (tile_height),
@@ -241,6 +272,6 @@ impl Game {
     }
 
     fn get_index(&self, i: i32, j: i32) -> usize {
-        (i * self.rows + j) as usize
+        (i * self.cols + j) as usize
     }
 }

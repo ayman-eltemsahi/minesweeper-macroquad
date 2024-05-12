@@ -10,7 +10,7 @@ use rand::Rng;
 
 use crate::{
     game_state::GameState,
-    messages::write_game_over,
+    messages::{write_game_over, write_you_win},
     tile::Tile,
     utils::{current_time_seconds, get_time_diff},
 };
@@ -37,6 +37,7 @@ pub struct Game {
     pub cols: i32,
     pub tile_size: f32,
     pub start_time: i64,
+    pub end_time: i64,
     tiles: Vec<Tile>,
 
     initial_mines_count: i32,
@@ -59,6 +60,7 @@ impl Game {
             tile_size: TILE_SIZE,
             tiles: Vec::new(),
             start_time: 0,
+            end_time: 0,
             initial_mines_count: 0,
             marked_mines_count: 0,
 
@@ -84,9 +86,16 @@ impl Game {
         }
 
         let initial_mines_count = tiles.iter().filter(|tile| tile.has_mine).count() as i32;
+
         self.initial_mines_count = initial_mines_count;
+        self.marked_mines_count = 0;
         self.tiles = tiles;
         self.update_mines_count();
+    }
+
+    pub fn end(&mut self, state: GameState) {
+        self.state = state;
+        self.end_time = current_time_seconds();
     }
 
     pub fn make_move(&mut self, pos: (f32, f32)) {
@@ -102,18 +111,47 @@ impl Game {
         let index = self.get_index(i, j);
 
         let tile = &mut self.tiles[index];
-        if !tile.is_hidden || tile.is_marked {
+        if tile.is_hidden && tile.is_marked {
             return;
         }
 
-        tile.is_hidden = false;
-
-        if tile.has_mine {
-            println!("Game over!");
-            self.state = GameState::GameOver;
-        } else {
-            self.clear_empty_neighbours(i, j);
+        if !tile.is_hidden && tile.has_mine {
+            return;
         }
+
+        if tile.is_hidden {
+            tile.is_hidden = false;
+
+            if tile.has_mine {
+                println!("Game over!");
+                self.end(GameState::GameOver);
+            } else {
+                self.clear_empty_neighbours(i, j);
+            }
+        } else {
+            self.click_on_shown_tile(i, j);
+        }
+
+        if self.has_won() {
+            self.end(GameState::GameWon);
+        }
+    }
+
+    pub fn has_won(&self) -> bool {
+        self.tiles
+            .iter()
+            .all(|tile| (!tile.has_mine && !tile.is_hidden) || (tile.has_mine && tile.is_marked))
+    }
+
+    pub fn click_on_shown_tile(&mut self, i: i32, j: i32) {
+        let index = self.get_index(i, j);
+        let tile = &mut self.tiles[index];
+
+        if tile.num_mines_around == 0 || !self.is_tile_cleared(i, j) {
+            return;
+        }
+
+        self.clear_empty_neighbours(i, j);
     }
 
     pub fn mark_tile(&mut self, pos: (f32, f32)) {
@@ -138,6 +176,11 @@ impl Game {
             true => 1,
             false => -1,
         };
+
+
+        if self.has_won() {
+            self.end(GameState::GameWon);
+        }
     }
 
     pub fn get_state(&self) -> GameState {
@@ -162,8 +205,10 @@ impl Game {
         self.write_time();
         self.write_remaining_mines();
 
-        if self.state == GameState::GameOver {
-            write_game_over();
+        match self.state {
+            GameState::GameOver => write_game_over(),
+            GameState::GameWon => write_you_win(),
+            _ => {}
         }
     }
 
@@ -199,7 +244,12 @@ impl Game {
     }
 
     fn write_time(&self) {
-        let (mins, secs) = get_time_diff(self.start_time);
+        let end_time = match self.state {
+            GameState::GameOver | GameState::GameWon => self.end_time,
+            _ => current_time_seconds(),
+        };
+
+        let (mins, secs) = get_time_diff(self.start_time, end_time);
         draw_text(
             &format!("Remaining time: {:02}:{:02}", mins, secs),
             20.0,
@@ -262,6 +312,34 @@ impl Game {
         }
 
         return count;
+    }
+
+    fn is_tile_cleared(&self, i: i32, j: i32) -> bool {
+        let index = self.get_index(i, j);
+        if self.tiles[index].has_mine {
+            return false;
+        }
+
+        let mut count = self.tiles[index].num_mines_around;
+
+        for (dx, dy) in NEIGHBORS {
+            let (x, y) = (i + *dx, j + *dy);
+            if x < 0 || y < 0 || x >= self.cols || y >= self.rows {
+                continue;
+            }
+
+            let other_tile_index = self.get_index(x, y);
+            let other = &self.tiles[other_tile_index];
+
+            count -= match (other.has_mine, other.is_hidden, other.is_marked) {
+                (true, false, _) => 1,
+                (true, true, true) => 1,
+                (false, true, true) => 10000000, // wrong marking
+                _ => 0,
+            }
+        }
+
+        count == 0
     }
 
     fn get_tile_size(&self) -> (f32, f32) {

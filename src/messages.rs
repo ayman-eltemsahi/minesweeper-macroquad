@@ -18,3 +18,17 @@ pub fn write_game_over() {
         },
     );
 }
+
+pub fn write_you_win() {
+    draw_text_ex(
+        "You Win!",
+        screen_width() / 2.0 - 200.0,
+        screen_height() / 2.0 - 20.0,
+        TextParams {
+            font_size: 100,
+            font_scale: get_time().sin() as f32 / 4.0 + 1.0,
+            color: BLACK,
+            ..Default::default()
+        },
+    );
+}

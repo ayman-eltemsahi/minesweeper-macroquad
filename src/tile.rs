@@ -7,56 +7,78 @@ use macroquad::{
 };
 
 pub const HIDDEN_COLOR: Color = SKYBLUE;
-pub const BOMB_COLOR: Color = WHITE;
-pub const BOMB_BACKGROUND_COLOR: Color = RED;
-pub const NO_BOMB_COLOR: Color = LIGHTGRAY;
+pub const MINE_COLOR: Color = WHITE;
+pub const MINE_BACKGROUND_COLOR: Color = RED;
+pub const FLAG_BACKGROUND_COLOR: Color = HIDDEN_COLOR;
+pub const NO_MINE_COLOR: Color = LIGHTGRAY;
 pub const TEXT_COLOR: Color = BLACK;
 pub const TEXT_FONT_SIZE: f32 = 30.0;
 
 #[derive(Debug)]
 pub struct Tile {
-    pub has_bomb: bool,
+    pub has_mine: bool,
     pub is_hidden: bool,
-    pub num_bombs_around: i32,
+    pub is_marked: bool,
+    pub num_mines_around: i32,
 }
 
 impl Tile {
-    pub fn new(has_bomb: bool) -> Tile {
+    pub fn new(has_mine: bool) -> Tile {
         Tile {
-            has_bomb,
+            has_mine,
             is_hidden: true,
-            num_bombs_around: 0,
+            is_marked: false,
+            num_mines_around: 0,
         }
     }
 
-    pub fn update_num_bombs_around(&mut self, num_bombs_around: i32) {
-        self.num_bombs_around = num_bombs_around;
+    pub fn update_num_mines_around(&mut self, num_mines_around: i32) {
+        self.num_mines_around = num_mines_around;
     }
 
-    pub fn draw(&self, x: f32, y: f32, w: f32, h: f32, explosion_texture: &Texture2D) {
+    pub fn draw(
+        &self,
+        x: f32,
+        y: f32,
+        w: f32,
+        h: f32,
+        explosion_texture: &Texture2D,
+        flag_texture: &Texture2D,
+    ) {
         let color = match self.is_hidden {
-            true => HIDDEN_COLOR,
-            false => match self.has_bomb {
-                true => BOMB_BACKGROUND_COLOR,
-                false => NO_BOMB_COLOR,
+            true => match self.is_marked {
+                true => FLAG_BACKGROUND_COLOR,
+                false => HIDDEN_COLOR,
+            },
+            false => match self.has_mine {
+                true => MINE_BACKGROUND_COLOR,
+                false => NO_MINE_COLOR,
             },
         };
 
         draw_rectangle(x, y, w, h, color);
 
-        if !self.is_hidden && self.has_bomb {
+        let texture = if !self.is_hidden && self.has_mine {
+            Some(explosion_texture)
+        } else if self.is_hidden && self.is_marked {
+            Some(flag_texture)
+        } else {
+            None
+        };
+
+        if let Some(texture) = texture {
             let s = if w < h { w } else { h };
             draw_texture_ex(
-                explosion_texture,
+                texture,
                 x + (w - s) / 2.0,
                 y + (h - s) / 2.0,
-                BOMB_COLOR,
+                MINE_COLOR,
                 Tile::get_texture_params(s),
             );
         }
 
-        if self.num_bombs_around > 0 && !self.is_hidden && !self.has_bomb {
-            let val = self.num_bombs_around.to_string();
+        if self.num_mines_around > 0 && !self.is_hidden && !self.has_mine {
+            let val = self.num_mines_around.to_string();
             draw_text(&val, x + h / 2.0, y + w / 2.0, TEXT_FONT_SIZE, TEXT_COLOR);
         }
     }

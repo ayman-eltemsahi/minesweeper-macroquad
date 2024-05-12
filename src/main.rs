@@ -2,6 +2,7 @@ mod game;
 mod monitor;
 mod mouse;
 mod tile;
+mod utils;
 
 use game::Game;
 use macroquad::{
@@ -13,7 +14,7 @@ use mouse::Mouse;
 
 #[macroquad::main("Minesweeper")]
 async fn main() {
-    let mut game = Game::random_game(20, 20).await;
+    let mut game = Game::random_game(5, 5).await;
 
     let mut counter: i64 = 0;
 
@@ -28,7 +29,10 @@ async fn main() {
 
         if let Some(pos) = mouse.is_left_key_up_same_pos() {
             println!("Left key up, pos: {:?}", pos);
-            game.handle_left_mouse_click(pos);
+            game.make_move(pos);
+        } else if let Some(pos) = mouse.is_right_key_up_same_pos() {
+            println!("Right key up, pos: {:?}", pos);
+            game.mark_tile(pos);
         }
 
         game.draw();

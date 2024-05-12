@@ -1,16 +1,22 @@
 use std::collections::VecDeque;
 
 use macroquad::{
+    color::BLACK,
+    text::draw_text,
     texture::{load_texture, Texture2D},
     window::{screen_height, screen_width},
 };
 use rand::Rng;
 
-use crate::tile::Tile;
+use crate::{
+    tile::Tile,
+    utils::{current_time_seconds, get_time_diff},
+};
 
 pub const TILE_SIZE: f32 = 15.0;
 pub const SCREEN_MARGIN: f32 = 30.0;
-pub const BOMBS_RATIO: f32 = 0.3;
+pub const SCREEN_BOTTOM_MARGIN: f32 = 30.0;
+pub const MINES_RATIO: f32 = 0.3;
 
 const NEIGHBORS: &'static [(i32, i32)] = &[
     (1, 0),
@@ -28,58 +34,109 @@ pub struct Game {
     pub rows: i32,
     pub cols: i32,
     pub tile_size: f32,
+    pub start_time: i64,
     tiles: Vec<Tile>,
+
+    initial_mines_count: i32,
+    marked_mines_count: i32,
+
     explosion_texture: Texture2D,
+    flag_texture: Texture2D,
 }
 
 impl Game {
     pub async fn random_game(rows: i32, cols: i32) -> Game {
         let explosion_texture: Texture2D = load_texture("textures/explosion.png").await.unwrap();
+        let flag_texture: Texture2D = load_texture("textures/flag.png").await.unwrap();
 
         let mut rng = rand::thread_rng();
 
         let mut tiles = Vec::new();
         for _ in 0..rows * cols {
-            let has_bomb = rng.gen::<f32>() < BOMBS_RATIO;
-            tiles.push(Tile::new(has_bomb));
+            let has_mine = rng.gen::<f32>() < MINES_RATIO;
+            tiles.push(Tile::new(has_mine));
         }
+
+        let initial_mines_count = tiles.iter().filter(|tile| tile.has_mine).count() as i32;
 
         let mut game = Game {
             rows,
             cols,
             tile_size: TILE_SIZE,
             tiles,
+            start_time: current_time_seconds(),
+            initial_mines_count,
+            marked_mines_count: 0,
+
             explosion_texture,
+            flag_texture,
         };
 
-        game.update_bombs_count();
+        game.update_mines_count();
         return game;
     }
 
-    pub fn handle_left_mouse_click(&mut self, pos: (f32, f32)) {
-        let (tile_width, tile_height) = self.get_tile_size();
+    pub fn make_move(&mut self, pos: (f32, f32)) {
+        let (j, i) = match self.resolve_tile_position(pos) {
+            Some(value) => value,
+            None => return,
+        };
 
+        let index = self.get_index(i, j);
+
+        let tile = &mut self.tiles[index];
+        if !tile.is_hidden || tile.is_marked {
+            return;
+        }
+
+        tile.is_hidden = false;
+
+        if tile.has_mine {
+            println!("Game over!");
+        } else {
+            self.clear_empty_neighbours(i, j);
+        }
+    }
+
+    pub fn mark_tile(&mut self, pos: (f32, f32)) {
+        let (j, i) = match self.resolve_tile_position(pos) {
+            Some(value) => value,
+            None => return,
+        };
+
+        let index = self.get_index(i, j);
+
+        let tile = &mut self.tiles[index];
+        if !tile.is_hidden {
+            return;
+        }
+
+        tile.is_marked = !tile.is_marked;
+        self.marked_mines_count += match tile.is_marked {
+            true => 1,
+            false => -1,
+        };
+    }
+
+    fn resolve_tile_position(&mut self, pos: (f32, f32)) -> Option<(i32, i32)> {
+        let (tile_width, tile_height) = self.get_tile_size();
         let x = pos.0 - SCREEN_MARGIN;
         let y = pos.1 - SCREEN_MARGIN;
-
         let j = (x / tile_width) as i32;
         let i = (y / tile_height) as i32;
-
-        // check if out of bounds
         if i < 0 || i >= self.rows || j < 0 || j >= self.cols {
-            return;
+            return None;
         }
-
-        let index = (i * self.rows + j) as usize;
-        // check if the tile has been clicked before
-        if !self.tiles[index].is_hidden {
-            return;
-        }
-
-        self.handle_click_on_tile(i, j);
+        Some((j, i))
     }
 
     pub fn draw(&self) {
+        self.draw_tiles();
+        self.write_time();
+        self.write_remaining_mines();
+    }
+
+    fn draw_tiles(&self) {
         let (tile_width, tile_height) = self.get_tile_size();
 
         for i in 0..self.rows {
@@ -91,21 +148,34 @@ impl Game {
                     tile_width - 1.0,
                     tile_height - 1.0,
                     &self.explosion_texture,
+                    &self.flag_texture,
                 );
             }
         }
     }
 
-    fn handle_click_on_tile(&mut self, i: i32, j: i32) {
-        let index = self.get_index(i, j);
-        let tile = &mut self.tiles[index];
-        tile.is_hidden = false;
+    fn write_remaining_mines(&self) {
+        draw_text(
+            &format!(
+                "Remaining mines: {}",
+                self.initial_mines_count - self.marked_mines_count
+            ),
+            20.0,
+            screen_height() - SCREEN_BOTTOM_MARGIN,
+            20.0,
+            BLACK,
+        );
+    }
 
-        if tile.has_bomb {
-            println!("Game over!");
-        } else {
-            self.clear_empty_neighbours(i, j);
-        }
+    fn write_time(&self) {
+        let (mins, secs) = get_time_diff(self.start_time);
+        draw_text(
+            &format!("Remaining time: {:02}:{:02}", mins, secs),
+            20.0,
+            screen_height() - SCREEN_BOTTOM_MARGIN + 20.0,
+            20.0,
+            BLACK,
+        );
     }
 
     fn clear_empty_neighbours(&mut self, i: i32, j: i32) {
@@ -122,30 +192,30 @@ impl Game {
                 let other_tile_index = self.get_index(x, y);
                 let other_tile = &mut self.tiles[other_tile_index];
 
-                if other_tile.has_bomb || !other_tile.is_hidden {
+                if other_tile.has_mine || !other_tile.is_hidden || other_tile.is_marked {
                     continue;
                 }
 
                 other_tile.is_hidden = false;
 
-                if other_tile.num_bombs_around == 0 {
+                if other_tile.num_mines_around == 0 {
                     q.push_back((x, y));
                 }
             }
         }
     }
 
-    fn update_bombs_count(&mut self) {
+    fn update_mines_count(&mut self) {
         for i in 0..self.rows {
             for j in 0..self.cols {
-                let count = self.count_bombs_around(i, j);
+                let count = self.count_mines_around(i, j);
                 let index = self.get_index(i, j);
-                self.tiles[index].update_num_bombs_around(count);
+                self.tiles[index].update_num_mines_around(count);
             }
         }
     }
 
-    fn count_bombs_around(&self, i: i32, j: i32) -> i32 {
+    fn count_mines_around(&self, i: i32, j: i32) -> i32 {
         let mut count = 0;
 
         for (dx, dy) in NEIGHBORS {
@@ -155,7 +225,7 @@ impl Game {
             }
 
             let other_tile_index = self.get_index(x, y);
-            if self.tiles[other_tile_index].has_bomb {
+            if self.tiles[other_tile_index].has_mine {
                 count += 1;
             }
         }
@@ -165,7 +235,8 @@ impl Game {
 
     fn get_tile_size(&self) -> (f32, f32) {
         let tile_width = (screen_width() - SCREEN_MARGIN * 2.0) / self.cols as f32;
-        let tile_height = (screen_height() - SCREEN_MARGIN * 2.0) / self.rows as f32;
+        let tile_height =
+            (screen_height() - SCREEN_MARGIN * 2.0 - SCREEN_BOTTOM_MARGIN) / self.rows as f32;
         (tile_width, tile_height)
     }
 

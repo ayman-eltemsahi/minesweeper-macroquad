@@ -11,6 +11,8 @@ pub struct Mouse {
 
     left_key_down_pos: (f32, f32),
     left_key_up_pos: (f32, f32),
+    right_key_down_pos: (f32, f32),
+    right_key_up_pos: (f32, f32),
 }
 
 impl Mouse {
@@ -24,6 +26,8 @@ impl Mouse {
             right_key_up: false,
             left_key_down_pos: (0.0, 0.0),
             left_key_up_pos: (0.0, 0.0),
+            right_key_down_pos: (0.0, 0.0),
+            right_key_up_pos: (0.0, 0.0),
         }
     }
 
@@ -44,9 +48,15 @@ impl Mouse {
         if self.left_key_down {
             self.left_key_down_pos = pos;
         }
-
         if self.left_key_up {
             self.left_key_up_pos = pos;
+        }
+
+        if self.right_key_down {
+            self.right_key_down_pos = pos;
+        }
+        if self.right_key_up {
+            self.right_key_up_pos = pos;
         }
     }
 
@@ -68,13 +78,11 @@ impl Mouse {
         }
     }
 
-    #[allow(dead_code)]
-    pub fn get_left_key_down_pos(&self) -> (f32, f32) {
-        self.left_key_down_pos
-    }
-
-    #[allow(dead_code)]
-    pub fn get_left_key_up_pos(&self) -> (f32, f32) {
-        self.left_key_up_pos
+    pub fn is_right_key_up_same_pos(&self) -> Option<(f32, f32)> {
+        if self.right_key_up && self.right_key_down_pos == self.right_key_up_pos {
+            Some(self.right_key_up_pos)
+        } else {
+            None
+        }
     }
 }

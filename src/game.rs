@@ -190,10 +190,11 @@ impl Game {
         let y = pos.1 - SCREEN_MARGIN;
         let j = (x / tile_width) as i32;
         let i = (y / tile_height) as i32;
-        if i < 0 || i >= self.rows || j < 0 || j >= self.cols {
-            None
-        } else {
+
+        if self.within_bounds(i, j) {
             Some((i, j, self.get_index(i, j)))
+        } else {
+            None
         }
     }
 
@@ -214,10 +215,10 @@ impl Game {
 
         for i in 0..self.rows {
             for j in 0..self.cols {
-                let index = (i * self.cols + j) as usize;
+                let index = self.get_index(i, j);
                 self.tiles[index].draw(
-                    SCREEN_MARGIN + j as f32 * (tile_width),
-                    SCREEN_MARGIN + i as f32 * (tile_height),
+                    SCREEN_MARGIN + ((j as f32) * tile_width),
+                    SCREEN_MARGIN + ((i as f32) * tile_height),
                     tile_width - 1.0,
                     tile_height - 1.0,
                     &self.explosion_texture,
@@ -263,7 +264,7 @@ impl Game {
         while let Some((i, j)) = q.pop_front() {
             for (dx, dy) in NEIGHBORS {
                 let (x, y) = (i + *dx, j + *dy);
-                if x < 0 || y < 0 || x >= self.rows || y >= self.cols {
+                if !self.within_bounds(x, y) {
                     continue;
                 }
 
@@ -294,21 +295,12 @@ impl Game {
     }
 
     fn count_mines_around(&self, i: i32, j: i32) -> i32 {
-        let mut count = 0;
-
-        for (dx, dy) in NEIGHBORS {
-            let (x, y) = (i + *dx, j + *dy);
-            if x < 0 || y < 0 || x >= self.rows || y >= self.cols {
-                continue;
-            }
-
-            let other_tile_index = self.get_index(x, y);
-            if self.tiles[other_tile_index].has_mine {
-                count += 1;
-            }
-        }
-
-        return count;
+        NEIGHBORS
+            .iter()
+            .map(|(dx, dy)| (i + *dx, j + *dy))
+            .filter(|(x, y)| self.within_bounds(*x, *y))
+            .filter(|(x, y)| self.tiles[self.get_index(*x, *y)].has_mine)
+            .count() as i32
     }
 
     fn is_tile_cleared(&self, i: i32, j: i32) -> bool {
@@ -317,26 +309,23 @@ impl Game {
             return false;
         }
 
-        let mut count = self.tiles[index].num_mines_around;
+        let count = NEIGHBORS
+            .iter()
+            .map(|(dx, dy)| (i + *dx, j + *dy))
+            .filter(|(x, y)| self.within_bounds(*x, *y))
+            .map(|(x, y)| {
+                let other = &self.tiles[self.get_index(x, y)];
 
-        for (dx, dy) in NEIGHBORS {
-            let (x, y) = (i + *dx, j + *dy);
-            if x < 0 || y < 0 || x >= self.rows || y >= self.cols {
-                continue;
-            }
+                match (other.has_mine, other.is_hidden, other.is_marked) {
+                    (true, false, _) => 1,
+                    (true, true, true) => 1,
+                    (false, true, true) => 10000000, // wrong marking
+                    _ => 0,
+                }
+            })
+            .sum();
 
-            let other_tile_index = self.get_index(x, y);
-            let other = &self.tiles[other_tile_index];
-
-            count -= match (other.has_mine, other.is_hidden, other.is_marked) {
-                (true, false, _) => 1,
-                (true, true, true) => 1,
-                (false, true, true) => 10000000, // wrong marking
-                _ => 0,
-            }
-        }
-
-        count == 0
+        self.tiles[index].num_mines_around == count
     }
 
     fn get_tile_size(&self) -> (f32, f32) {
@@ -346,6 +335,10 @@ impl Game {
 
         let min = tile_width.min(tile_height);
         (min, min)
+    }
+
+    fn within_bounds(&self, i: i32, j: i32) -> bool {
+        i >= 0 && j >= 0 && i < self.rows && j < self.cols
     }
 
     fn get_index(&self, i: i32, j: i32) -> usize {

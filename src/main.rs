@@ -17,33 +17,6 @@ use macroquad::{
 use monitor::draw_fps;
 use mouse::Mouse;
 
-fn handle_not_started_state(
-    game: &mut Game,
-    state: &mut GameState,
-    mouse: &Mouse,
-    controls: &GameControls,
-) {
-    controls.draw();
-
-    if let Some(pos) = mouse.is_left_key_up_same_pos() {
-        match controls.handle_input(pos) {
-            Some(GameLevel::Beginner) => {
-                game.start(5, 5);
-                *state = GameState::Playing;
-            }
-            Some(GameLevel::Intermediate) => {
-                game.start(16, 16);
-                *state = GameState::Playing;
-            }
-            Some(GameLevel::Expert) => {
-                game.start(16, 30);
-                *state = GameState::Playing;
-            }
-            _ => {}
-        }
-    }
-}
-
 #[macroquad::main("Minesweeper")]
 async fn main() {
     let mut game = Game::random_game().await;
@@ -63,8 +36,29 @@ async fn main() {
         mouse.update();
 
         match state {
-            GameState::NotStarted => {
-                handle_not_started_state(&mut game, &mut state, &mouse, &controls);
+            GameState::NotStarted | GameState::GameOver | GameState::GameWon => {
+                if state != GameState::NotStarted {
+                    game.draw();
+                }
+
+                controls.draw();
+                if let Some(pos) = mouse.is_left_key_up_same_pos() {
+                    match controls.handle_input(pos) {
+                        Some(GameLevel::Beginner) => {
+                            game.start(5, 5);
+                            state = GameState::Playing;
+                        }
+                        Some(GameLevel::Intermediate) => {
+                            game.start(16, 16);
+                            state = GameState::Playing;
+                        }
+                        Some(GameLevel::Expert) => {
+                            game.start(16, 30);
+                            state = GameState::Playing;
+                        }
+                        _ => {}
+                    }
+                }
             }
             GameState::Playing => {
                 if let Some(pos) = mouse.is_left_key_up_same_pos() {
@@ -76,19 +70,7 @@ async fn main() {
                 }
 
                 game.draw();
-                match game.get_state() {
-                    GameState::GameOver => {
-                        state = GameState::GameOver;
-                    }
-                    GameState::GameWon => {
-                        state = GameState::GameWon;
-                    }
-                    _ => {}
-                }
-            }
-            GameState::GameOver | GameState::GameWon => {
-                game.draw();
-                handle_not_started_state(&mut game, &mut state, &mouse, &controls);
+                state = game.get_state();
             }
         }
 

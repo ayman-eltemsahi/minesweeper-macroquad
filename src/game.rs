@@ -100,15 +100,14 @@ impl Game {
 
     pub fn make_move(&mut self, pos: (f32, f32)) {
         if self.state != GameState::Playing {
+            eprintln!("Game is not in playing state");
             return;
         }
 
-        let (j, i) = match self.resolve_tile_position(pos) {
+        let (i, j, index) = match self.resolve_tile_position(pos) {
             Some(value) => value,
             None => return,
         };
-
-        let index = self.get_index(i, j);
 
         let tile = &mut self.tiles[index];
         if tile.is_hidden && tile.is_marked {
@@ -156,15 +155,14 @@ impl Game {
 
     pub fn mark_tile(&mut self, pos: (f32, f32)) {
         if self.state != GameState::Playing {
+            eprintln!("Game is not in playing state");
             return;
         }
 
-        let (j, i) = match self.resolve_tile_position(pos) {
+        let (_, _, index) = match self.resolve_tile_position(pos) {
             Some(value) => value,
             None => return,
         };
-
-        let index = self.get_index(i, j);
 
         let tile = &mut self.tiles[index];
         if !tile.is_hidden {
@@ -177,7 +175,6 @@ impl Game {
             false => -1,
         };
 
-
         if self.has_won() {
             self.end(GameState::GameWon);
         }
@@ -187,7 +184,7 @@ impl Game {
         self.state
     }
 
-    fn resolve_tile_position(&mut self, pos: (f32, f32)) -> Option<(i32, i32)> {
+    fn resolve_tile_position(&mut self, pos: (f32, f32)) -> Option<(i32, i32, usize)> {
         let (tile_width, tile_height) = self.get_tile_size();
         let x = pos.0 - SCREEN_MARGIN;
         let y = pos.1 - SCREEN_MARGIN;
@@ -196,7 +193,7 @@ impl Game {
         if i < 0 || i >= self.rows || j < 0 || j >= self.cols {
             None
         } else {
-            Some((j, i))
+            Some((i, j, self.get_index(i, j)))
         }
     }
 
@@ -266,7 +263,7 @@ impl Game {
         while let Some((i, j)) = q.pop_front() {
             for (dx, dy) in NEIGHBORS {
                 let (x, y) = (i + *dx, j + *dy);
-                if x < 0 || y < 0 || x >= self.cols || y >= self.rows {
+                if x < 0 || y < 0 || x >= self.rows || y >= self.cols {
                     continue;
                 }
 
@@ -301,7 +298,7 @@ impl Game {
 
         for (dx, dy) in NEIGHBORS {
             let (x, y) = (i + *dx, j + *dy);
-            if x < 0 || y < 0 || x >= self.cols || y >= self.rows {
+            if x < 0 || y < 0 || x >= self.rows || y >= self.cols {
                 continue;
             }
 
@@ -324,7 +321,7 @@ impl Game {
 
         for (dx, dy) in NEIGHBORS {
             let (x, y) = (i + *dx, j + *dy);
-            if x < 0 || y < 0 || x >= self.cols || y >= self.rows {
+            if x < 0 || y < 0 || x >= self.rows || y >= self.cols {
                 continue;
             }
 
@@ -346,7 +343,9 @@ impl Game {
         let tile_width = (screen_width() - SCREEN_MARGIN * 2.0) / self.cols as f32;
         let tile_height =
             (screen_height() - SCREEN_MARGIN * 2.0 - SCREEN_BOTTOM_MARGIN) / self.rows as f32;
-        (tile_width, tile_height)
+
+        let min = tile_width.min(tile_height);
+        (min, min)
     }
 
     fn get_index(&self, i: i32, j: i32) -> usize {

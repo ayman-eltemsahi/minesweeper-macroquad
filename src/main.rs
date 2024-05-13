@@ -36,7 +36,7 @@ fn handle_not_started_state(
                 *state = GameState::Playing;
             }
             Some(GameLevel::Expert) => {
-                game.start(30, 16);
+                game.start(16, 30);
                 *state = GameState::Playing;
             }
             _ => {}

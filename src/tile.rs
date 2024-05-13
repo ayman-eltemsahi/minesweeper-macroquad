@@ -12,7 +12,6 @@ pub const MINE_BACKGROUND_COLOR: Color = RED;
 pub const FLAG_BACKGROUND_COLOR: Color = HIDDEN_COLOR;
 pub const NO_MINE_COLOR: Color = LIGHTGRAY;
 pub const TEXT_COLOR: Color = BLACK;
-pub const TEXT_FONT_SIZE: f32 = 30.0;
 
 #[derive(Debug)]
 pub struct Tile {
@@ -78,8 +77,16 @@ impl Tile {
         }
 
         if self.num_mines_around > 0 && !self.is_hidden && !self.has_mine {
-            let val = self.num_mines_around.to_string();
-            draw_text(&val, x + h / 2.0, y + w / 2.0, TEXT_FONT_SIZE, TEXT_COLOR);
+            let font_size = w.min(h);
+            let text_x = x + h / 2.0 - font_size / 5.0;
+            let text_y = y + w / 2.0 + font_size / 5.0;
+            draw_text(
+                &self.num_mines_around.to_string(),
+                text_x,
+                text_y,
+                font_size,
+                TEXT_COLOR,
+            );
         }
     }
 

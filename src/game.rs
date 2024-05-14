@@ -3,13 +3,13 @@ use std::collections::VecDeque;
 use macroquad::{
     color::BLACK,
     text::draw_text,
-    texture::{load_texture, Texture2D},
     window::{screen_height, screen_width},
 };
 use rand::Rng;
 
 use crate::{
     game_state::GameState,
+    game_textures::GameTextures,
     messages::{write_game_over, write_you_win},
     tile::Tile,
     utils::{current_time_seconds, get_time_diff},
@@ -18,7 +18,6 @@ use crate::{
 pub const TILE_SIZE: f32 = 15.0;
 pub const SCREEN_MARGIN: f32 = 30.0;
 pub const SCREEN_BOTTOM_MARGIN: f32 = 30.0;
-pub const MINES_RATIO: f32 = 0.3;
 
 const NEIGHBORS: &'static [(i32, i32)] = &[
     (1, 0),
@@ -43,16 +42,14 @@ pub struct Game {
     initial_mines_count: i32,
     marked_mines_count: i32,
 
-    explosion_texture: Texture2D,
-    flag_texture: Texture2D,
-
     state: GameState,
+
+    textures: GameTextures,
 }
 
 impl Game {
     pub async fn random_game() -> Game {
-        let explosion_texture: Texture2D = load_texture("textures/explosion.png").await.unwrap();
-        let flag_texture: Texture2D = load_texture("textures/flag.png").await.unwrap();
+        let textures = GameTextures::new().await;
 
         Game {
             rows: 0,
@@ -66,12 +63,11 @@ impl Game {
 
             state: GameState::NotStarted,
 
-            explosion_texture,
-            flag_texture,
+            textures,
         }
     }
 
-    pub fn start(&mut self, rows: i32, cols: i32) {
+    pub fn start(&mut self, rows: i32, cols: i32, num_of_mines: i32) {
         self.rows = rows;
         self.cols = cols;
         self.start_time = current_time_seconds();
@@ -81,8 +77,16 @@ impl Game {
 
         let mut tiles = Vec::new();
         for _ in 0..rows * cols {
-            let has_mine = rng.gen::<f32>() < MINES_RATIO;
-            tiles.push(Tile::new(has_mine));
+            tiles.push(Tile::new(false));
+        }
+
+        for _ in 0..num_of_mines {
+            let mut index = rng.gen_range(0..(rows * cols) as usize);
+            while tiles[index].has_mine {
+                index = rng.gen_range(0..(rows * cols) as usize);
+            }
+
+            tiles[index].has_mine = true;
         }
 
         let initial_mines_count = tiles.iter().filter(|tile| tile.has_mine).count() as i32;
@@ -200,8 +204,11 @@ impl Game {
 
     pub fn draw(&self) {
         self.draw_tiles();
-        self.write_time();
-        self.write_remaining_mines();
+
+        if self.state != GameState::NotStarted {
+            self.write_time();
+            self.write_remaining_mines();
+        }
 
         match self.state {
             GameState::GameOver => write_game_over(),
@@ -221,8 +228,7 @@ impl Game {
                     SCREEN_MARGIN + ((i as f32) * tile_height),
                     tile_width - 1.0,
                     tile_height - 1.0,
-                    &self.explosion_texture,
-                    &self.flag_texture,
+                    &self.textures,
                 );
             }
         }

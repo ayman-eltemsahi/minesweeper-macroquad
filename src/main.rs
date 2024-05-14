@@ -1,6 +1,7 @@
 mod game;
 mod game_controls;
 mod game_state;
+mod game_textures;
 mod messages;
 mod monitor;
 mod mouse;
@@ -37,7 +38,7 @@ async fn main() {
 
         match state {
             GameState::NotStarted | GameState::GameOver | GameState::GameWon => {
-                if state != GameState::NotStarted {
+                if state != GameState::GameOver || state == GameState::GameOver {
                     game.draw();
                 }
 
@@ -45,15 +46,15 @@ async fn main() {
                 if let Some(pos) = mouse.is_left_key_up_same_pos() {
                     match controls.handle_input(pos) {
                         Some(GameLevel::Beginner) => {
-                            game.start(5, 5);
+                            game.start(9, 9, 10);
                             state = GameState::Playing;
                         }
                         Some(GameLevel::Intermediate) => {
-                            game.start(16, 16);
+                            game.start(16, 16, 40);
                             state = GameState::Playing;
                         }
                         Some(GameLevel::Expert) => {
-                            game.start(16, 30);
+                            game.start(16, 30, 99);
                             state = GameState::Playing;
                         }
                         _ => {}

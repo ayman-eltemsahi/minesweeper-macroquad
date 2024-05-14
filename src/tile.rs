@@ -3,8 +3,10 @@ use macroquad::{
     math::Vec2,
     shapes::draw_rectangle,
     text::draw_text,
-    texture::{draw_texture_ex, DrawTextureParams, Texture2D},
+    texture::{draw_texture_ex, DrawTextureParams},
 };
+
+use crate::game_textures::GameTextures;
 
 pub const HIDDEN_COLOR: Color = SKYBLUE;
 pub const MINE_COLOR: Color = WHITE;
@@ -35,15 +37,9 @@ impl Tile {
         self.num_mines_around = num_mines_around;
     }
 
-    pub fn draw(
-        &self,
-        x: f32,
-        y: f32,
-        w: f32,
-        h: f32,
-        explosion_texture: &Texture2D,
-        flag_texture: &Texture2D,
-    ) {
+    pub fn draw(&self, x: f32, y: f32, w: f32, h: f32, textures: &GameTextures) {
+        let dim = w.min(h);
+
         let color = match self.is_hidden {
             true => match self.is_marked {
                 true => FLAG_BACKGROUND_COLOR,
@@ -58,33 +54,31 @@ impl Tile {
         draw_rectangle(x, y, w, h, color);
 
         let texture = if !self.is_hidden && self.has_mine {
-            Some(explosion_texture)
+            Some(&textures.bomb)
         } else if self.is_hidden && self.is_marked {
-            Some(flag_texture)
+            Some(&textures.flag)
         } else {
             None
         };
 
         if let Some(texture) = texture {
-            let s = if w < h { w } else { h };
             draw_texture_ex(
                 texture,
-                x + (w - s) / 2.0,
-                y + (h - s) / 2.0,
+                x + (w - dim) / 2.0,
+                y + (h - dim) / 2.0,
                 MINE_COLOR,
-                Tile::get_texture_params(s),
+                Tile::get_texture_params(dim),
             );
         }
 
         if self.num_mines_around > 0 && !self.is_hidden && !self.has_mine {
-            let font_size = w.min(h);
-            let text_x = x + h / 2.0 - font_size / 5.0;
-            let text_y = y + w / 2.0 + font_size / 5.0;
+            let text_x = x + h / 2.0 - dim / 5.0;
+            let text_y = y + w / 2.0 + dim / 5.0;
             draw_text(
                 &self.num_mines_around.to_string(),
                 text_x,
                 text_y,
-                font_size,
+                dim,
                 TEXT_COLOR,
             );
         }

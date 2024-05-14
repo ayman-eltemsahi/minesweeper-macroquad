@@ -1,23 +1,16 @@
 use std::collections::VecDeque;
 
-use macroquad::{
-    color::BLACK,
-    text::draw_text,
-    window::{screen_height, screen_width},
-};
+use macroquad::{color::BLACK, text::draw_text};
 use rand::Rng;
 
 use crate::{
     game_state::GameState,
     game_textures::GameTextures,
+    grid::Grid,
     messages::{write_game_over, write_you_win},
     tile::Tile,
     utils::{current_time_seconds, get_time_diff},
 };
-
-pub const TILE_SIZE: f32 = 15.0;
-pub const SCREEN_MARGIN: f32 = 30.0;
-pub const SCREEN_BOTTOM_MARGIN: f32 = 30.0;
 
 const NEIGHBORS: &'static [(i32, i32)] = &[
     (1, 0),
@@ -44,22 +37,25 @@ pub struct Game {
 
     state: GameState,
 
+    grid: Grid,
+
     textures: GameTextures,
 }
 
 impl Game {
-    pub async fn random_game() -> Game {
+    pub async fn random_game(grid: Grid) -> Game {
         let textures = GameTextures::new().await;
 
         Game {
             rows: 0,
             cols: 0,
-            tile_size: TILE_SIZE,
+            tile_size: 0.0,
             tiles: Vec::new(),
             start_time: 0,
             end_time: 0,
             initial_mines_count: 0,
             marked_mines_count: 0,
+            grid,
 
             state: GameState::NotStarted,
 
@@ -189,13 +185,13 @@ impl Game {
     }
 
     fn resolve_tile_position(&mut self, pos: (f32, f32)) -> Option<(i32, i32, usize)> {
-        let (tile_width, tile_height) = self.get_tile_size();
-        let x = pos.0 - SCREEN_MARGIN;
-        let y = pos.1 - SCREEN_MARGIN;
-        let j = (x / tile_width) as i32;
-        let i = (y / tile_height) as i32;
+        let tile_size = self.get_tile_size();
+        let x = pos.0 - self.grid.body.get_x();
+        let y = pos.1 - self.grid.body.get_y();
+        let j = (x / tile_size) as i32;
+        let i = (y / tile_size) as i32;
 
-        if self.within_bounds(i, j) {
+        if x >= 0.0 && y >= 0.0 && self.within_bounds(i, j) {
             Some((i, j, self.get_index(i, j)))
         } else {
             None
@@ -218,16 +214,19 @@ impl Game {
     }
 
     fn draw_tiles(&self) {
-        let (tile_width, tile_height) = self.get_tile_size();
+        let tile_size = self.get_tile_size();
+
+        let margin_x = self.grid.body.get_x();
+        let margin_y = self.grid.body.get_y();
 
         for i in 0..self.rows {
             for j in 0..self.cols {
                 let index = self.get_index(i, j);
                 self.tiles[index].draw(
-                    SCREEN_MARGIN + ((j as f32) * tile_width),
-                    SCREEN_MARGIN + ((i as f32) * tile_height),
-                    tile_width - 1.0,
-                    tile_height - 1.0,
+                    margin_x + ((j as f32) * tile_size),
+                    margin_y + ((i as f32) * tile_size),
+                    tile_size - 1.0,
+                    tile_size - 1.0,
                     &self.textures,
                 );
             }
@@ -237,11 +236,11 @@ impl Game {
     fn write_remaining_mines(&self) {
         draw_text(
             &format!(
-                "Remaining mines: {}",
+                "Mines: {}",
                 self.initial_mines_count - self.marked_mines_count
             ),
-            20.0,
-            screen_height() - SCREEN_BOTTOM_MARGIN,
+            self.grid.header.get_x() + 20.0,
+            self.grid.header.get_y() + 20.0,
             20.0,
             BLACK,
         );
@@ -255,9 +254,9 @@ impl Game {
 
         let (mins, secs) = get_time_diff(self.start_time, end_time);
         draw_text(
-            &format!("Remaining time: {:02}:{:02}", mins, secs),
-            20.0,
-            screen_height() - SCREEN_BOTTOM_MARGIN + 20.0,
+            &format!("{:02}:{:02}", mins, secs),
+            self.grid.header.get_x() + 200.0,
+            self.grid.header.get_y() + 20.0,
             20.0,
             BLACK,
         );
@@ -334,13 +333,11 @@ impl Game {
         self.tiles[index].num_mines_around == count
     }
 
-    fn get_tile_size(&self) -> (f32, f32) {
-        let tile_width = (screen_width() - SCREEN_MARGIN * 2.0) / self.cols as f32;
-        let tile_height =
-            (screen_height() - SCREEN_MARGIN * 2.0 - SCREEN_BOTTOM_MARGIN) / self.rows as f32;
+    fn get_tile_size(&self) -> f32 {
+        let tile_width = (self.grid.body.w()) / self.cols as f32;
+        let tile_height = (self.grid.body.h()) / self.rows as f32;
 
-        let min = tile_width.min(tile_height);
-        (min, min)
+        tile_width.min(tile_height)
     }
 
     fn within_bounds(&self, i: i32, j: i32) -> bool {

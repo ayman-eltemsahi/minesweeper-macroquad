@@ -1,0 +1,9 @@
+{
+  "levels": [
+    { "name": "Beginner", "rows": 9, "cols": 9, "mines": 10 },
+    { "name": "Intermediate", "rows": 16, "cols": 16, "mines": 40 },
+    { "name": "Expert", "rows": 16, "cols": 30, "mines": 99 },
+    { "name": "Big, 5 mines", "rows": 20, "cols": 30, "mines": 5 },
+    { "name": "Big, 20 mines", "rows": 20, "cols": 30, "mines": 20 }
+  ]
+}

@@ -314,7 +314,7 @@ impl Game {
             return false;
         }
 
-        let count = NEIGHBORS
+        let count: i32 = NEIGHBORS
             .iter()
             .map(|(dx, dy)| (i + *dx, j + *dy))
             .filter(|(x, y)| self.within_bounds(*x, *y))

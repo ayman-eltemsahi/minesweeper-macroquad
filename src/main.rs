@@ -1,3 +1,4 @@
+mod config;
 mod game;
 mod game_controls;
 mod game_state;
@@ -9,8 +10,8 @@ mod mouse;
 mod tile;
 mod utils;
 
+use config::Config;
 use game::Game;
-use game_controls::GameLevel;
 use game_state::GameState;
 use macroquad::{
     prelude::{clear_background, next_frame, WHITE},
@@ -29,7 +30,9 @@ async fn main() {
     let mut mouse = Mouse::new();
 
     let mut state = GameState::NotStarted;
-    let controls = game_controls::GameControls::new();
+
+    let config = Config::new();
+    let controls = game_controls::GameControls::new(&config);
 
     loop {
         counter += 1;
@@ -46,16 +49,9 @@ async fn main() {
                 controls.draw();
                 if let Some(pos) = mouse.is_left_key_up_same_pos() {
                     match controls.handle_input(pos) {
-                        Some(GameLevel::Beginner) => {
-                            game.start(9, 9, 10);
-                            state = GameState::Playing;
-                        }
-                        Some(GameLevel::Intermediate) => {
-                            game.start(16, 16, 40);
-                            state = GameState::Playing;
-                        }
-                        Some(GameLevel::Expert) => {
-                            game.start(16, 30, 99);
+                        Some((index, _level)) => {
+                            let level = &config.levels[index];
+                            game.start(level.rows, level.cols, level.mines);
                             state = GameState::Playing;
                         }
                         _ => {}

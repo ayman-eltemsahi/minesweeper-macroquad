@@ -229,7 +229,6 @@ impl Game {
                     margin_x + ((j as f32) * tile_size),
                     margin_y + ((i as f32) * tile_size),
                     tile_size - 1.0,
-                    tile_size - 1.0,
                     &self.textures,
                 );
             }

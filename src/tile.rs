@@ -15,6 +15,8 @@ pub const FLAG_BACKGROUND_COLOR: Color = HIDDEN_COLOR;
 pub const NO_MINE_COLOR: Color = LIGHTGRAY;
 pub const TEXT_COLOR: Color = BLACK;
 
+const DIGITS: &'static [&str] = &["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"];
+
 #[derive(Debug)]
 pub struct Tile {
     pub has_mine: bool,
@@ -37,9 +39,7 @@ impl Tile {
         self.num_mines_around = num_mines_around;
     }
 
-    pub fn draw(&self, x: f32, y: f32, w: f32, h: f32, textures: &GameTextures) {
-        let dim = w.min(h);
-
+    pub fn draw(&self, x: f32, y: f32, size: f32, textures: &GameTextures) {
         let color = match self.is_hidden {
             true => match self.is_marked {
                 true => FLAG_BACKGROUND_COLOR,
@@ -51,7 +51,7 @@ impl Tile {
             },
         };
 
-        draw_rectangle(x, y, w, h, color);
+        draw_rectangle(x, y, size, size, color);
 
         let texture = if !self.is_hidden && self.has_mine {
             Some(&textures.bomb)
@@ -62,23 +62,17 @@ impl Tile {
         };
 
         if let Some(texture) = texture {
-            draw_texture_ex(
-                texture,
-                x + (w - dim) / 2.0,
-                y + (h - dim) / 2.0,
-                MINE_COLOR,
-                Tile::get_texture_params(dim),
-            );
+            draw_texture_ex(texture, x, y, MINE_COLOR, Tile::get_texture_params(size));
         }
 
         if self.num_mines_around > 0 && !self.is_hidden && !self.has_mine {
-            let text_x = x + h / 2.0 - dim / 5.0;
-            let text_y = y + w / 2.0 + dim / 5.0;
+            let text_x = x + size / 2.0 - size / 5.0;
+            let text_y = y + size / 2.0 + size / 5.0;
             draw_text(
-                &self.num_mines_around.to_string(),
+                DIGITS[self.num_mines_around as usize],
                 text_x,
                 text_y,
-                dim,
+                size,
                 TEXT_COLOR,
             );
         }

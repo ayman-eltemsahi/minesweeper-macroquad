@@ -1,15 +1,14 @@
 use std::collections::VecDeque;
 
-use macroquad::{color::BLACK, text::draw_text};
 use rand::Rng;
 
 use crate::{
     game_state::GameState,
     game_textures::GameTextures,
     grid::Grid,
-    messages::{write_game_over, write_you_win},
+    messages::{write_game_over, write_remaining_mines, write_time, write_you_win},
     tile::Tile,
-    utils::{current_time_seconds, get_time_diff},
+    utils::current_time_seconds,
 };
 
 const NEIGHBORS: &'static [(i32, i32)] = &[
@@ -186,8 +185,8 @@ impl Game {
 
     fn resolve_tile_position(&mut self, pos: (f32, f32)) -> Option<(i32, i32, usize)> {
         let tile_size = self.get_tile_size();
-        let x = pos.0 - self.grid.body.get_x();
-        let y = pos.1 - self.grid.body.get_y();
+        let x = pos.0 - self.grid.body.x();
+        let y = pos.1 - self.grid.body.y();
         let j = (x / tile_size) as i32;
         let i = (y / tile_size) as i32;
 
@@ -199,6 +198,10 @@ impl Game {
     }
 
     pub fn draw(&self) {
+        if self.state == GameState::NotStarted {
+            return;
+        }
+
         self.draw_tiles();
 
         if self.state != GameState::NotStarted {
@@ -207,8 +210,8 @@ impl Game {
         }
 
         match self.state {
-            GameState::GameOver => write_game_over(),
-            GameState::GameWon => write_you_win(),
+            GameState::GameOver => write_game_over(&self.grid.header),
+            GameState::GameWon => write_you_win(&self.grid.header),
             _ => {}
         }
     }
@@ -216,8 +219,8 @@ impl Game {
     fn draw_tiles(&self) {
         let tile_size = self.get_tile_size();
 
-        let margin_x = self.grid.body.get_x();
-        let margin_y = self.grid.body.get_y();
+        let margin_x = self.grid.body.x();
+        let margin_y = self.grid.body.y();
 
         for i in 0..self.rows {
             for j in 0..self.cols {
@@ -234,15 +237,9 @@ impl Game {
     }
 
     fn write_remaining_mines(&self) {
-        draw_text(
-            &format!(
-                "Mines: {}",
-                self.initial_mines_count - self.marked_mines_count
-            ),
-            self.grid.header.get_x() + 20.0,
-            self.grid.header.get_y() + 20.0,
-            20.0,
-            BLACK,
+        write_remaining_mines(
+            self.initial_mines_count - self.marked_mines_count,
+            &self.grid.header,
         );
     }
 
@@ -252,14 +249,7 @@ impl Game {
             _ => current_time_seconds(),
         };
 
-        let (mins, secs) = get_time_diff(self.start_time, end_time);
-        draw_text(
-            &format!("{:02}:{:02}", mins, secs),
-            self.grid.header.get_x() + 200.0,
-            self.grid.header.get_y() + 20.0,
-            20.0,
-            BLACK,
-        );
+        write_time(self.start_time, end_time, &self.grid.header);
     }
 
     fn clear_empty_neighbours(&mut self, i: i32, j: i32) {

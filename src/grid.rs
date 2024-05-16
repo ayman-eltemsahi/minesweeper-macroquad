@@ -18,11 +18,11 @@ pub struct Grid {
 }
 
 impl GridSection {
-    pub fn get_x(&self) -> f32 {
+    pub fn x(&self) -> f32 {
         self.padding_left
     }
 
-    pub fn get_y(&self) -> f32 {
+    pub fn y(&self) -> f32 {
         let h = screen_height();
         return self.padding_top + (self.start / GRID_COLUMNS) * h;
     }

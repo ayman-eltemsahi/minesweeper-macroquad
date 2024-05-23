@@ -1,5 +1,7 @@
 use macroquad::window::{screen_height, screen_width};
 
+use crate::coordinate::Coordinate;
+
 const GRID_COLUMNS: f32 = 12.0;
 
 #[derive(Debug)]
@@ -18,22 +20,22 @@ pub struct Grid {
 }
 
 impl GridSection {
-    pub fn x(&self) -> f32 {
-        self.padding_left
-    }
+    pub fn pos(&self) -> Coordinate {
+        let x = self.padding_left;
 
-    pub fn y(&self) -> f32 {
         let h = screen_height();
-        return self.padding_top + (self.start / GRID_COLUMNS) * h;
+        let y = self.padding_top + (self.start / GRID_COLUMNS) * h;
+
+        Coordinate { x, y }
     }
 
-    pub fn w(&self) -> f32 {
-        screen_width() - self.padding_left * 2.0
-    }
+    pub fn screen_size(&self) -> Coordinate {
+        let x = screen_width() - self.padding_left * 2.0;
 
-    pub fn h(&self) -> f32 {
         let h = screen_height();
-        (self.cols / GRID_COLUMNS * h) - (self.padding_top * 2.0)
+        let y = (self.cols / GRID_COLUMNS * h) - (self.padding_top * 2.0);
+
+        Coordinate { x, y }
     }
 }
 

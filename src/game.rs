@@ -1,8 +1,9 @@
 use std::collections::VecDeque;
 
-use rand::Rng;
+use rand::{rngs::ThreadRng, Rng};
 
 use crate::{
+    coordinate::{coord, Coordinate},
     game_state::GameState,
     game_textures::GameTextures,
     grid::Grid,
@@ -11,16 +12,25 @@ use crate::{
     utils::current_time_seconds,
 };
 
-const NEIGHBORS: &'static [(i32, i32)] = &[
-    (1, 0),
-    (-1, 0),
-    (0, 1),
-    (0, -1),
-    (1, 1),
-    (-1, -1),
-    (1, -1),
-    (-1, 1),
+const NEIGHBORS: &'static [Coordinate] = &[
+    coord(1.0, 0.0),
+    coord(-1.0, 0.0),
+    coord(0.0, 1.0),
+    coord(0.0, -1.0),
+    coord(1.0, 1.0),
+    coord(-1.0, -1.0),
+    coord(1.0, -1.0),
+    coord(-1.0, 1.0),
 ];
+
+fn rand_num(from: i32, to: i32, rng: &mut ThreadRng, pred: impl Fn(i32) -> bool) -> usize {
+    loop {
+        let index = rng.gen_range(from..to);
+        if pred(index) {
+            return index as usize;
+        }
+    }
+}
 
 #[derive(Debug)]
 pub struct Game {
@@ -71,18 +81,16 @@ impl Game {
         let mut rng = rand::thread_rng();
 
         let mut tiles = Vec::new();
-        for _ in 0..rows * cols {
+        for _ in 0..(rows * cols) {
             tiles.push(Tile::new(false));
         }
 
-        for _ in 0..num_of_mines {
-            let mut index = rng.gen_range(0..(rows * cols) as usize);
-            while tiles[index].has_mine {
-                index = rng.gen_range(0..(rows * cols) as usize);
-            }
-
+        (0..num_of_mines).for_each(|_| {
+            let index = rand_num(0, rows * cols, &mut rng, |index| {
+                !tiles[index as usize].has_mine
+            });
             tiles[index].has_mine = true;
-        }
+        });
 
         let initial_mines_count = tiles.iter().filter(|tile| tile.has_mine).count() as i32;
 
@@ -97,13 +105,13 @@ impl Game {
         self.end_time = current_time_seconds();
     }
 
-    pub fn make_move(&mut self, pos: (f32, f32)) {
+    pub fn make_move(&mut self, i_pos: Coordinate) {
         if self.state != GameState::Playing {
             eprintln!("Game is not in playing state");
             return;
         }
 
-        let (i, j, index) = match self.resolve_tile_position(pos) {
+        let (pos, index) = match self.resolve_tile_position(i_pos) {
             Some(value) => value,
             None => return,
         };
@@ -124,10 +132,10 @@ impl Game {
                 println!("Game over!");
                 self.end(GameState::GameOver);
             } else {
-                self.clear_empty_neighbours(i, j);
+                self.clear_empty_neighbours(pos);
             }
         } else {
-            self.click_on_shown_tile(i, j);
+            self.click_on_shown_tile(pos);
         }
 
         if self.has_won() {
@@ -141,24 +149,24 @@ impl Game {
             .all(|tile| (!tile.has_mine && !tile.is_hidden) || (tile.has_mine && tile.is_marked))
     }
 
-    pub fn click_on_shown_tile(&mut self, i: i32, j: i32) {
-        let index = self.get_index(i, j);
+    pub fn click_on_shown_tile(&mut self, pos: Coordinate) {
+        let index = self.get_index(pos);
         let tile = &mut self.tiles[index];
 
-        if tile.num_mines_around == 0 || !self.is_tile_cleared(i, j) {
+        if tile.num_mines_around == 0 || !self.is_tile_cleared(pos) {
             return;
         }
 
-        self.clear_empty_neighbours(i, j);
+        self.clear_empty_neighbours(pos);
     }
 
-    pub fn mark_tile(&mut self, pos: (f32, f32)) {
+    pub fn mark_tile(&mut self, pos: Coordinate) {
         if self.state != GameState::Playing {
             eprintln!("Game is not in playing state");
             return;
         }
 
-        let (_, _, index) = match self.resolve_tile_position(pos) {
+        let (_, index) = match self.resolve_tile_position(pos) {
             Some(value) => value,
             None => return,
         };
@@ -183,15 +191,17 @@ impl Game {
         self.state
     }
 
-    fn resolve_tile_position(&mut self, pos: (f32, f32)) -> Option<(i32, i32, usize)> {
+    fn resolve_tile_position(&mut self, pos: Coordinate) -> Option<(Coordinate, usize)> {
         let tile_size = self.get_tile_size();
-        let x = pos.0 - self.grid.body.x();
-        let y = pos.1 - self.grid.body.y();
-        let j = (x / tile_size) as i32;
-        let i = (y / tile_size) as i32;
+        let transformed = pos.sub(self.grid.body.pos());
+        if transformed.x < 0.0 || transformed.y < 0.0 {
+            return None;
+        }
 
-        if x >= 0.0 && y >= 0.0 && self.within_bounds(i, j) {
-            Some((i, j, self.get_index(i, j)))
+        let scaled = transformed.flip().div_val(tile_size);
+
+        if self.within_bounds(scaled) {
+            Some((scaled, self.get_index(scaled)))
         } else {
             None
         }
@@ -219,15 +229,14 @@ impl Game {
     fn draw_tiles(&self) {
         let tile_size = self.get_tile_size();
 
-        let margin_x = self.grid.body.x();
-        let margin_y = self.grid.body.y();
+        let margin = self.grid.body.pos();
 
         for i in 0..self.rows {
             for j in 0..self.cols {
-                let index = self.get_index(i, j);
+                let pos = coord(i as f32, j as f32);
+                let index = self.get_index(pos);
                 self.tiles[index].draw(
-                    margin_x + ((j as f32) * tile_size),
-                    margin_y + ((i as f32) * tile_size),
+                    margin.add(pos.flip().mult_val(tile_size)),
                     tile_size - 1.0,
                     &self.textures,
                 );
@@ -251,18 +260,19 @@ impl Game {
         write_time(self.start_time, end_time, &self.grid.header);
     }
 
-    fn clear_empty_neighbours(&mut self, i: i32, j: i32) {
-        let mut q: VecDeque<(i32, i32)> = VecDeque::new();
-        q.push_back((i, j));
+    fn clear_empty_neighbours(&mut self, pos: Coordinate) {
+        let mut q: VecDeque<Coordinate> = VecDeque::new();
+        q.push_back(pos);
 
-        while let Some((i, j)) = q.pop_front() {
-            for (dx, dy) in NEIGHBORS {
-                let (x, y) = (i + *dx, j + *dy);
-                if !self.within_bounds(x, y) {
+        while let Some(pos) = q.pop_front() {
+            for neighbour_diff in NEIGHBORS {
+                let new_pos = pos.add(*neighbour_diff);
+
+                if !self.within_bounds(new_pos) {
                     continue;
                 }
 
-                let other_tile_index = self.get_index(x, y);
+                let other_tile_index = self.get_index(new_pos);
                 let other_tile = &mut self.tiles[other_tile_index];
 
                 if other_tile.has_mine || !other_tile.is_hidden || other_tile.is_marked {
@@ -272,7 +282,7 @@ impl Game {
                 other_tile.is_hidden = false;
 
                 if other_tile.num_mines_around == 0 {
-                    q.push_back((x, y));
+                    q.push_back(new_pos);
                 }
             }
         }
@@ -281,34 +291,35 @@ impl Game {
     fn update_mines_count(&mut self) {
         for i in 0..self.rows {
             for j in 0..self.cols {
-                let count = self.count_mines_around(i, j);
-                let index = self.get_index(i, j);
+                let pos = coord(i as f32, j as f32);
+                let count = self.count_mines_around(pos);
+                let index = self.get_index(pos);
                 self.tiles[index].update_num_mines_around(count);
             }
         }
     }
 
-    fn count_mines_around(&self, i: i32, j: i32) -> i32 {
+    fn count_mines_around(&self, pos: Coordinate) -> i32 {
         NEIGHBORS
             .iter()
-            .map(|(dx, dy)| (i + *dx, j + *dy))
-            .filter(|(x, y)| self.within_bounds(*x, *y))
-            .filter(|(x, y)| self.tiles[self.get_index(*x, *y)].has_mine)
+            .map(|neighbour_diff| pos.add(*neighbour_diff))
+            .filter(|pos| self.within_bounds(*pos))
+            .filter(|pos| self.tiles[self.get_index(*pos)].has_mine)
             .count() as i32
     }
 
-    fn is_tile_cleared(&self, i: i32, j: i32) -> bool {
-        let index = self.get_index(i, j);
+    fn is_tile_cleared(&self, pos: Coordinate) -> bool {
+        let index = self.get_index(pos);
         if self.tiles[index].has_mine {
             return false;
         }
 
         let count: i32 = NEIGHBORS
             .iter()
-            .map(|(dx, dy)| (i + *dx, j + *dy))
-            .filter(|(x, y)| self.within_bounds(*x, *y))
-            .map(|(x, y)| {
-                let other = &self.tiles[self.get_index(x, y)];
+            .map(|neighbour_diff| pos.add(*neighbour_diff))
+            .filter(|pos| self.within_bounds(*pos))
+            .map(|pos| {
+                let other = &self.tiles[self.get_index(pos)];
 
                 match (other.has_mine, other.is_hidden, other.is_marked) {
                     (true, false, _) => 1,
@@ -323,17 +334,21 @@ impl Game {
     }
 
     fn get_tile_size(&self) -> f32 {
-        let tile_width = (self.grid.body.w()) / self.cols as f32;
-        let tile_height = (self.grid.body.h()) / self.rows as f32;
-
-        tile_width.min(tile_height)
+        self.grid
+            .body
+            .screen_size()
+            .div(coord(self.cols as f32, self.rows as f32))
+            .min_component()
     }
 
-    fn within_bounds(&self, i: i32, j: i32) -> bool {
-        i >= 0 && j >= 0 && i < self.rows && j < self.cols
+    fn within_bounds(&self, coord: Coordinate) -> bool {
+        coord.x >= 0.0
+            && coord.y >= 0.0
+            && (coord.x as i32) < self.rows
+            && (coord.y as i32) < self.cols
     }
 
-    fn get_index(&self, i: i32, j: i32) -> usize {
-        (i * self.cols + j) as usize
+    fn get_index(&self, pos: Coordinate) -> usize {
+        (pos.x as usize * self.cols as usize) + pos.y as usize
     }
 }

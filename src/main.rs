@@ -1,4 +1,5 @@
 mod config;
+mod coordinate;
 mod diagnostics;
 mod game;
 mod game_controls;

@@ -1,5 +1,7 @@
 use macroquad::input::{is_mouse_button_down, mouse_position, MouseButton};
 
+use crate::coordinate::{coord, Coordinate};
+
 pub struct Mouse {
     left: bool,
     right: bool,
@@ -9,10 +11,10 @@ pub struct Mouse {
     right_key_down: bool,
     right_key_up: bool,
 
-    left_key_down_pos: (f32, f32),
-    left_key_up_pos: (f32, f32),
-    right_key_down_pos: (f32, f32),
-    right_key_up_pos: (f32, f32),
+    left_key_down_pos: Coordinate,
+    left_key_up_pos: Coordinate,
+    right_key_down_pos: Coordinate,
+    right_key_up_pos: Coordinate,
 }
 
 impl Mouse {
@@ -24,10 +26,10 @@ impl Mouse {
             left_key_up: false,
             right_key_down: false,
             right_key_up: false,
-            left_key_down_pos: (0.0, 0.0),
-            left_key_up_pos: (0.0, 0.0),
-            right_key_down_pos: (0.0, 0.0),
-            right_key_up_pos: (0.0, 0.0),
+            left_key_down_pos: coord(0.0, 0.0),
+            left_key_up_pos: coord(0.0, 0.0),
+            right_key_down_pos: coord(0.0, 0.0),
+            right_key_up_pos: coord(0.0, 0.0),
         }
     }
 
@@ -44,7 +46,9 @@ impl Mouse {
         self.left = left;
         self.right = right;
 
-        let pos = mouse_position();
+        let (x, y) = mouse_position();
+        let pos = coord(x, y);
+
         if self.left_key_down {
             self.left_key_down_pos = pos;
         }
@@ -70,7 +74,7 @@ impl Mouse {
         self.left_key_up
     }
 
-    pub fn is_left_key_up_same_pos(&self) -> Option<(f32, f32)> {
+    pub fn is_left_key_up_same_pos(&self) -> Option<Coordinate> {
         if self.left_key_up && self.left_key_down_pos == self.left_key_up_pos {
             Some(self.left_key_up_pos)
         } else {
@@ -78,7 +82,7 @@ impl Mouse {
         }
     }
 
-    pub fn is_right_key_up_same_pos(&self) -> Option<(f32, f32)> {
+    pub fn is_right_key_up_same_pos(&self) -> Option<Coordinate> {
         if self.right_key_up && self.right_key_down_pos == self.right_key_up_pos {
             Some(self.right_key_up_pos)
         } else {

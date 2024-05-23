@@ -8,11 +8,11 @@ pub struct Vector2<T> {
 
 impl<T> Vector2<T>
 where
-    T: Add<T, Output = T> + Copy + Clone,
-    T: Sub<T, Output = T> + Copy + Clone,
-    T: Mul<T, Output = T> + Copy + Clone,
-    T: Div<T, Output = T> + Copy + Clone,
-    T: std::cmp::PartialOrd<T> + Copy + Clone,
+    T: Add<T, Output = T> + Copy,
+    T: Sub<T, Output = T>,
+    T: Mul<T, Output = T>,
+    T: Div<T, Output = T>,
+    T: std::cmp::PartialOrd<T>,
 {
     pub const fn new(x: T, y: T) -> Vector2<T> {
         Vector2 { x, y }

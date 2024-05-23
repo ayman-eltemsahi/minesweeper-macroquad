@@ -4,7 +4,7 @@ use macroquad::{
     window::{screen_height, screen_width},
 };
 
-use crate::{config::Config, coordinate::Coordinate};
+use crate::{config::Config, vector2::Vector2};
 
 pub const WIDTH: f32 = 190.0;
 pub const HEIGHT: f32 = 30.0;
@@ -39,7 +39,7 @@ impl GameControls {
         });
     }
 
-    pub fn handle_input(&self, pos: Coordinate) -> Option<(usize, String)> {
+    pub fn handle_input(&self, pos: Vector2<f32>) -> Option<(usize, String)> {
         let full_height = HEIGHT + PADDING;
         let (top_margin, left_margin) = self.get_margins();
 
@@ -63,7 +63,7 @@ impl GameControls {
         (top_margin, left_margin)
     }
 
-    fn intersects(x: f32, y: f32, pos: Coordinate) -> bool {
+    fn intersects(x: f32, y: f32, pos: Vector2<f32>) -> bool {
         pos.x >= x && pos.x <= x + WIDTH && pos.y >= y && pos.y <= y + HEIGHT
     }
 }

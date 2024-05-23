@@ -3,24 +3,24 @@ use std::collections::VecDeque;
 use rand::{rngs::ThreadRng, Rng};
 
 use crate::{
-    coordinate::{coord, Coordinate},
     game_state::GameState,
     game_textures::GameTextures,
     grid::Grid,
     messages::{write_game_over, write_remaining_mines, write_time, write_you_win},
     tile::Tile,
     utils::current_time_seconds,
+    vector2::Vector2,
 };
 
-const NEIGHBORS: &'static [Coordinate] = &[
-    coord(1.0, 0.0),
-    coord(-1.0, 0.0),
-    coord(0.0, 1.0),
-    coord(0.0, -1.0),
-    coord(1.0, 1.0),
-    coord(-1.0, -1.0),
-    coord(1.0, -1.0),
-    coord(-1.0, 1.0),
+const NEIGHBORS: &'static [Vector2<i32>] = &[
+    Vector2::new(1, 0),
+    Vector2::new(-1, 0),
+    Vector2::new(0, 1),
+    Vector2::new(0, -1),
+    Vector2::new(1, 1),
+    Vector2::new(-1, -1),
+    Vector2::new(1, -1),
+    Vector2::new(-1, 1),
 ];
 
 fn rand_num(from: i32, to: i32, rng: &mut ThreadRng, pred: impl Fn(i32) -> bool) -> usize {
@@ -34,8 +34,7 @@ fn rand_num(from: i32, to: i32, rng: &mut ThreadRng, pred: impl Fn(i32) -> bool)
 
 #[derive(Debug)]
 pub struct Game {
-    pub rows: i32,
-    pub cols: i32,
+    pub dimensions: Vector2<i32>,
     pub tile_size: f32,
     pub start_time: i64,
     pub end_time: i64,
@@ -56,8 +55,7 @@ impl Game {
         let textures = GameTextures::new().await;
 
         Game {
-            rows: 0,
-            cols: 0,
+            dimensions: Vector2::new(0, 0),
             tile_size: 0.0,
             tiles: Vec::new(),
             start_time: 0,
@@ -73,8 +71,7 @@ impl Game {
     }
 
     pub fn start(&mut self, rows: i32, cols: i32, num_of_mines: i32) {
-        self.rows = rows;
-        self.cols = cols;
+        self.dimensions = Vector2::new(rows, cols);
         self.start_time = current_time_seconds();
         self.state = GameState::Playing;
 
@@ -105,13 +102,13 @@ impl Game {
         self.end_time = current_time_seconds();
     }
 
-    pub fn make_move(&mut self, i_pos: Coordinate) {
+    pub fn make_move(&mut self, pos: Vector2<f32>) {
         if self.state != GameState::Playing {
             eprintln!("Game is not in playing state");
             return;
         }
 
-        let (pos, index) = match self.resolve_tile_position(i_pos) {
+        let (pos, index) = match self.resolve_tile_position(pos) {
             Some(value) => value,
             None => return,
         };
@@ -149,7 +146,7 @@ impl Game {
             .all(|tile| (!tile.has_mine && !tile.is_hidden) || (tile.has_mine && tile.is_marked))
     }
 
-    pub fn click_on_shown_tile(&mut self, pos: Coordinate) {
+    pub fn click_on_shown_tile(&mut self, pos: Vector2<i32>) {
         let index = self.get_index(pos);
         let tile = &mut self.tiles[index];
 
@@ -160,7 +157,7 @@ impl Game {
         self.clear_empty_neighbours(pos);
     }
 
-    pub fn mark_tile(&mut self, pos: Coordinate) {
+    pub fn mark_tile(&mut self, pos: Vector2<f32>) {
         if self.state != GameState::Playing {
             eprintln!("Game is not in playing state");
             return;
@@ -191,7 +188,7 @@ impl Game {
         self.state
     }
 
-    fn resolve_tile_position(&mut self, pos: Coordinate) -> Option<(Coordinate, usize)> {
+    fn resolve_tile_position(&mut self, pos: Vector2<f32>) -> Option<(Vector2<i32>, usize)> {
         let tile_size = self.get_tile_size();
         let transformed = pos.sub(self.grid.body.pos());
         if transformed.x < 0.0 || transformed.y < 0.0 {
@@ -199,9 +196,10 @@ impl Game {
         }
 
         let scaled = transformed.flip().div_val(tile_size);
+        let result = Vector2::new(scaled.x as i32, scaled.y as i32);
 
-        if self.within_bounds(scaled) {
-            Some((scaled, self.get_index(scaled)))
+        if self.within_bounds(result) {
+            Some((result, self.get_index(result)))
         } else {
             None
         }
@@ -231,12 +229,14 @@ impl Game {
 
         let margin = self.grid.body.pos();
 
-        for i in 0..self.rows {
-            for j in 0..self.cols {
-                let pos = coord(i as f32, j as f32);
+        for i in 0..self.dimensions.x {
+            for j in 0..self.dimensions.y {
+                let pos = Vector2::new(i, j);
                 let index = self.get_index(pos);
+                let flipped_pos: Vector2<f32> = pos.flip().into();
+
                 self.tiles[index].draw(
-                    margin.add(pos.flip().mult_val(tile_size)),
+                    margin.add(flipped_pos.mult_val(tile_size)),
                     tile_size - 1.0,
                     &self.textures,
                 );
@@ -260,8 +260,8 @@ impl Game {
         write_time(self.start_time, end_time, &self.grid.header);
     }
 
-    fn clear_empty_neighbours(&mut self, pos: Coordinate) {
-        let mut q: VecDeque<Coordinate> = VecDeque::new();
+    fn clear_empty_neighbours(&mut self, pos: Vector2<i32>) {
+        let mut q: VecDeque<Vector2<i32>> = VecDeque::new();
         q.push_back(pos);
 
         while let Some(pos) = q.pop_front() {
@@ -289,9 +289,9 @@ impl Game {
     }
 
     fn update_mines_count(&mut self) {
-        for i in 0..self.rows {
-            for j in 0..self.cols {
-                let pos = coord(i as f32, j as f32);
+        for i in 0..self.dimensions.x {
+            for j in 0..self.dimensions.y {
+                let pos = Vector2::new(i, j);
                 let count = self.count_mines_around(pos);
                 let index = self.get_index(pos);
                 self.tiles[index].update_num_mines_around(count);
@@ -299,7 +299,7 @@ impl Game {
         }
     }
 
-    fn count_mines_around(&self, pos: Coordinate) -> i32 {
+    fn count_mines_around(&self, pos: Vector2<i32>) -> i32 {
         NEIGHBORS
             .iter()
             .map(|neighbour_diff| pos.add(*neighbour_diff))
@@ -308,7 +308,7 @@ impl Game {
             .count() as i32
     }
 
-    fn is_tile_cleared(&self, pos: Coordinate) -> bool {
+    fn is_tile_cleared(&self, pos: Vector2<i32>) -> bool {
         let index = self.get_index(pos);
         if self.tiles[index].has_mine {
             return false;
@@ -337,18 +337,18 @@ impl Game {
         self.grid
             .body
             .screen_size()
-            .div(coord(self.cols as f32, self.rows as f32))
+            .div(self.dimensions.flip().into())
             .min_component()
     }
 
-    fn within_bounds(&self, coord: Coordinate) -> bool {
-        coord.x >= 0.0
-            && coord.y >= 0.0
-            && (coord.x as i32) < self.rows
-            && (coord.y as i32) < self.cols
+    fn within_bounds(&self, coord: Vector2<i32>) -> bool {
+        coord.x >= 0
+            && coord.y >= 0
+            && (coord.x as i32) < self.dimensions.x
+            && (coord.y as i32) < self.dimensions.y
     }
 
-    fn get_index(&self, pos: Coordinate) -> usize {
-        (pos.x as usize * self.cols as usize) + pos.y as usize
+    fn get_index(&self, pos: Vector2<i32>) -> usize {
+        (pos.x as usize * self.dimensions.y as usize) + pos.y as usize
     }
 }

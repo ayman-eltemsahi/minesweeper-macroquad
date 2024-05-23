@@ -6,10 +6,7 @@ use macroquad::{
     texture::{draw_texture_ex, DrawTextureParams},
 };
 
-use crate::{
-    coordinate::{coord, Coordinate},
-    game_textures::GameTextures,
-};
+use crate::{game_textures::GameTextures, vector2::Vector2};
 
 pub const HIDDEN_COLOR: Color = SKYBLUE;
 pub const MINE_COLOR: Color = WHITE;
@@ -42,7 +39,7 @@ impl Tile {
         self.num_mines_around = num_mines_around;
     }
 
-    pub fn draw(&self, pos: Coordinate, size: f32, textures: &GameTextures) {
+    pub fn draw(&self, pos: Vector2<f32>, size: f32, textures: &GameTextures) {
         let color = match self.is_hidden {
             true => match self.is_marked {
                 true => FLAG_BACKGROUND_COLOR,
@@ -75,7 +72,9 @@ impl Tile {
         }
 
         if self.num_mines_around > 0 && !self.is_hidden && !self.has_mine {
-            let text_pos = pos.add_val(size / 2.0).add(coord(-size / 5.0, size / 5.0));
+            let text_pos = pos
+                .add_val(size / 2.0)
+                .add(Vector2::new(-size / 5.0, size / 5.0));
             draw_text(
                 DIGITS[self.num_mines_around as usize],
                 text_pos.x,

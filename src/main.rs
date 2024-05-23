@@ -1,5 +1,4 @@
 mod config;
-mod coordinate;
 mod diagnostics;
 mod game;
 mod game_controls;
@@ -10,6 +9,7 @@ mod messages;
 mod mouse;
 mod tile;
 mod utils;
+mod vector2;
 
 use config::Config;
 use diagnostics::Diagnostics;

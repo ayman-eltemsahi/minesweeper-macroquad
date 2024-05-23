@@ -17,7 +17,7 @@ pub const TEXT_COLOR: Color = BLACK;
 
 const DIGITS: &'static [&str] = &["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"];
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Tile {
     pub has_mine: bool,
     pub is_hidden: bool,

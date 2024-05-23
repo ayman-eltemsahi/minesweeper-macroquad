@@ -77,23 +77,19 @@ impl Game {
 
         let mut rng = rand::thread_rng();
 
-        let mut tiles = Vec::new();
-        for _ in 0..(rows * cols) {
-            tiles.push(Tile::new(false));
-        }
+        self.tiles = vec![Tile::new(false); (rows * cols) as usize];
 
         (0..num_of_mines).for_each(|_| {
-            let index = rand_num(0, rows * cols, &mut rng, |index| {
-                !tiles[index as usize].has_mine
+            let index = rand_num(0, rows * cols, &mut rng, |idx| {
+                !self.tiles[idx as usize].has_mine
             });
-            tiles[index].has_mine = true;
+            self.tiles[index].has_mine = true;
         });
 
-        let initial_mines_count = tiles.iter().filter(|tile| tile.has_mine).count() as i32;
+        let initial_mines_count = self.tiles.iter().filter(|tile| tile.has_mine).count() as i32;
 
         self.initial_mines_count = initial_mines_count;
         self.marked_mines_count = 0;
-        self.tiles = tiles;
         self.update_mines_count();
     }
 
@@ -174,10 +170,7 @@ impl Game {
         }
 
         tile.is_marked = !tile.is_marked;
-        self.marked_mines_count += match tile.is_marked {
-            true => 1,
-            false => -1,
-        };
+        self.marked_mines_count += if tile.is_marked { 1 } else { -1 };
 
         if self.has_won() {
             self.end(GameState::GameWon);
@@ -303,8 +296,7 @@ impl Game {
         NEIGHBORS
             .iter()
             .map(|neighbour_diff| pos.add(*neighbour_diff))
-            .filter(|pos| self.within_bounds(*pos))
-            .filter(|pos| self.tiles[self.get_index(*pos)].has_mine)
+            .filter(|pos| self.within_bounds(*pos) && self.tiles[self.get_index(*pos)].has_mine)
             .count() as i32
     }
 
@@ -322,8 +314,7 @@ impl Game {
                 let other = &self.tiles[self.get_index(pos)];
 
                 match (other.has_mine, other.is_hidden, other.is_marked) {
-                    (true, false, _) => 1,
-                    (true, true, true) => 1,
+                    (true, false, _) | (true, true, true) => 1,
                     (false, true, true) => 10000000, // wrong marking
                     _ => 0,
                 }

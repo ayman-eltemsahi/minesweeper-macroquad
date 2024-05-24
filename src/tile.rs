@@ -89,7 +89,7 @@ impl Tile {
 
     fn get_texture_params(size: f32) -> DrawTextureParams {
         DrawTextureParams {
-            dest_size: Option::Some(Vec2 { x: size, y: size }),
+            dest_size: Option::Some(Vec2::splat(size)),
             source: None,
             rotation: 0.0,
             pivot: None,

@@ -3,7 +3,6 @@ use std::collections::VecDeque;
 use rand::{rngs::ThreadRng, Rng};
 
 use crate::{
-    game_state::GameState,
     game_textures::GameTextures,
     grid::Grid,
     messages::{write_game_over, write_remaining_mines, write_time, write_you_win},
@@ -12,7 +11,7 @@ use crate::{
     vector2::Vector2,
 };
 
-const NEIGHBORS: &'static [Vector2<i32>] = &[
+const NEIGHBORS: &[Vector2<i32>] = &[
     Vector2::new(1, 0),
     Vector2::new(-1, 0),
     Vector2::new(0, 1),
@@ -30,6 +29,14 @@ fn rand_num(from: i32, to: i32, rng: &mut ThreadRng, pred: impl Fn(i32) -> bool)
             return index as usize;
         }
     }
+}
+
+#[derive(Debug, PartialEq, Copy, Clone)]
+pub enum GameState {
+    NotStarted,
+    Playing,
+    GameOver,
+    GameWon,
 }
 
 #[derive(Debug)]
@@ -51,7 +58,7 @@ pub struct Game {
 }
 
 impl Game {
-    pub async fn random_game(grid: Grid) -> Game {
+    pub async fn new(grid: Grid) -> Game {
         let textures = GameTextures::new().await;
 
         Game {
@@ -100,7 +107,6 @@ impl Game {
 
     pub fn make_move(&mut self, pos: Vector2<f32>) {
         if self.state != GameState::Playing {
-            eprintln!("Game is not in playing state");
             return;
         }
 
@@ -338,10 +344,7 @@ impl Game {
     }
 
     fn within_bounds(&self, coord: Vector2<i32>) -> bool {
-        coord.x >= 0
-            && coord.y >= 0
-            && (coord.x as i32) < self.dimensions.x
-            && (coord.y as i32) < self.dimensions.y
+        coord.x >= 0 && coord.y >= 0 && coord.x < self.dimensions.x && coord.y < self.dimensions.y
     }
 
     fn get_index(&self, pos: Vector2<i32>) -> usize {

@@ -18,7 +18,7 @@ pub struct Mouse {
 }
 
 impl Mouse {
-    pub fn new() -> Mouse {
+    pub fn new() -> Self {
         Mouse {
             left: false,
             right: false,
@@ -62,16 +62,6 @@ impl Mouse {
         if self.right_key_up {
             self.right_key_up_pos = pos;
         }
-    }
-
-    #[allow(dead_code)]
-    pub fn is_left_key_down(&self) -> bool {
-        self.left_key_down
-    }
-
-    #[allow(dead_code)]
-    pub fn is_left_key_up(&self) -> bool {
-        self.left_key_up
     }
 
     pub fn is_left_key_up_same_pos(&self) -> Option<Vector2<f32>> {

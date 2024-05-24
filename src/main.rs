@@ -2,7 +2,6 @@ mod config;
 mod diagnostics;
 mod game;
 mod game_controls;
-mod game_state;
 mod game_textures;
 mod grid;
 mod messages;
@@ -13,14 +12,13 @@ mod vector2;
 
 use config::Config;
 use diagnostics::Diagnostics;
-use game::Game;
-use game_state::GameState;
+use game::{Game, GameState};
 use macroquad::prelude::{clear_background, next_frame, WHITE};
 use mouse::Mouse;
 
 #[macroquad::main("Minesweeper")]
 async fn main() {
-    let mut game = Game::random_game(grid::Grid::new()).await;
+    let mut game = Game::new(grid::Grid::new()).await;
 
     let mut diagnostics = Diagnostics::new();
     let mut mouse = Mouse::new();

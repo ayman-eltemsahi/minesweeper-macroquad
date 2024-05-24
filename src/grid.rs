@@ -40,7 +40,7 @@ impl GridSection {
 }
 
 impl Grid {
-    pub fn new() -> Grid {
+    pub fn new() -> Self {
         Grid {
             header: GridSection {
                 start: 0.0,

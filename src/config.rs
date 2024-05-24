@@ -16,7 +16,7 @@ pub struct Config {
 }
 
 impl Config {
-    pub fn new() -> Config {
+    pub fn new() -> Self {
         let file = File::open("./config.json").expect("Could not open the config file");
         let reader = BufReader::new(file);
         let config: Config =

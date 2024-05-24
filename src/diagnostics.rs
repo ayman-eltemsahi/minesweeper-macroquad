@@ -6,7 +6,7 @@ pub struct Diagnostics {
 }
 
 impl Diagnostics {
-    pub fn new() -> Diagnostics {
+    pub fn new() -> Self {
         Diagnostics {
             counter: 0,
             last_fps: 0,

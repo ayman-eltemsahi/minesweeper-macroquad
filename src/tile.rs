@@ -17,11 +17,17 @@ pub const TEXT_COLOR: Color = BLACK;
 
 const DIGITS: &'static [&str] = &["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"];
 
+#[derive(Debug, Clone, PartialEq)]
+pub enum TileState {
+    Hidden,
+    Flagged,
+    Revealed,
+}
+
 #[derive(Debug, Clone)]
 pub struct Tile {
     pub has_mine: bool,
-    pub is_hidden: bool,
-    pub is_marked: bool,
+    pub state: TileState,
     pub num_mines_around: i32,
 }
 
@@ -29,8 +35,7 @@ impl Tile {
     pub fn new(has_mine: bool) -> Tile {
         Tile {
             has_mine,
-            is_hidden: true,
-            is_marked: false,
+            state: TileState::Hidden,
             num_mines_around: 0,
         }
     }
@@ -40,12 +45,10 @@ impl Tile {
     }
 
     pub fn draw(&self, pos: Vector2<f32>, size: f32, textures: &GameTextures) {
-        let color = match self.is_hidden {
-            true => match self.is_marked {
-                true => FLAG_BACKGROUND_COLOR,
-                false => HIDDEN_COLOR,
-            },
-            false => match self.has_mine {
+        let color = match self.state {
+            TileState::Hidden => FLAG_BACKGROUND_COLOR,
+            TileState::Flagged => FLAG_BACKGROUND_COLOR,
+            TileState::Revealed => match self.has_mine {
                 true => MINE_BACKGROUND_COLOR,
                 false => NO_MINE_COLOR,
             },
@@ -53,9 +56,9 @@ impl Tile {
 
         draw_rectangle(pos.x, pos.y, size, size, color);
 
-        let texture = if !self.is_hidden && self.has_mine {
+        let texture = if self.state == TileState::Revealed && self.has_mine {
             Some(&textures.bomb)
-        } else if self.is_hidden && self.is_marked {
+        } else if self.state == TileState::Flagged {
             Some(&textures.flag)
         } else {
             None
@@ -71,7 +74,7 @@ impl Tile {
             );
         }
 
-        if self.num_mines_around > 0 && !self.is_hidden && !self.has_mine {
+        if self.num_mines_around > 0 && self.state == TileState::Revealed && !self.has_mine {
             let text_pos = pos
                 .add_val(size / 2.0)
                 .add(Vector2::new(-size / 5.0, size / 5.0));

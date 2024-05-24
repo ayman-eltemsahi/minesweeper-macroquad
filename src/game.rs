@@ -7,7 +7,7 @@ use crate::{
     game_textures::GameTextures,
     grid::Grid,
     messages::{write_game_over, write_remaining_mines, write_time, write_you_win},
-    tile::Tile,
+    tile::{Tile, TileState},
     utils::current_time_seconds,
     vector2::Vector2,
 };
@@ -110,16 +110,13 @@ impl Game {
         };
 
         let tile = &mut self.tiles[index];
-        if tile.is_hidden && tile.is_marked {
+        if tile.state == TileState::Flagged || (tile.state == TileState::Revealed && tile.has_mine)
+        {
             return;
         }
 
-        if !tile.is_hidden && tile.has_mine {
-            return;
-        }
-
-        if tile.is_hidden {
-            tile.is_hidden = false;
+        if tile.state == TileState::Hidden {
+            tile.state = TileState::Revealed;
 
             if tile.has_mine {
                 println!("Game over!");
@@ -137,9 +134,10 @@ impl Game {
     }
 
     pub fn has_won(&self) -> bool {
-        self.tiles
-            .iter()
-            .all(|tile| (!tile.has_mine && !tile.is_hidden) || (tile.has_mine && tile.is_marked))
+        self.tiles.iter().all(|tile| match tile.has_mine {
+            true => tile.state == TileState::Flagged,
+            false => tile.state == TileState::Revealed,
+        })
     }
 
     pub fn click_on_shown_tile(&mut self, pos: Vector2<i32>) {
@@ -165,12 +163,19 @@ impl Game {
         };
 
         let tile = &mut self.tiles[index];
-        if !tile.is_hidden {
+        if tile.state == TileState::Revealed {
             return;
         }
 
-        tile.is_marked = !tile.is_marked;
-        self.marked_mines_count += if tile.is_marked { 1 } else { -1 };
+        tile.state = match tile.state {
+            TileState::Flagged => TileState::Hidden,
+            _ => TileState::Flagged,
+        };
+
+        self.marked_mines_count += match tile.state {
+            TileState::Flagged => 1,
+            _ => -1,
+        };
 
         if self.has_won() {
             self.end(GameState::GameWon);
@@ -268,11 +273,11 @@ impl Game {
                 let other_tile_index = self.get_index(new_pos);
                 let other_tile = &mut self.tiles[other_tile_index];
 
-                if other_tile.has_mine || !other_tile.is_hidden || other_tile.is_marked {
+                if other_tile.has_mine || other_tile.state != TileState::Hidden {
                     continue;
                 }
 
-                other_tile.is_hidden = false;
+                other_tile.state = TileState::Revealed;
 
                 if other_tile.num_mines_around == 0 {
                     q.push_back(new_pos);
@@ -313,9 +318,9 @@ impl Game {
             .map(|pos| {
                 let other = &self.tiles[self.get_index(pos)];
 
-                match (other.has_mine, other.is_hidden, other.is_marked) {
-                    (true, false, _) | (true, true, true) => 1,
-                    (false, true, true) => 10000000, // wrong marking
+                match (other.has_mine, &other.state) {
+                    (true, TileState::Flagged) | (true, TileState::Revealed) => 1,
+                    (false, TileState::Flagged) => 10000000, // wrong marking
                     _ => 0,
                 }
             })

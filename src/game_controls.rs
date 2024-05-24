@@ -10,12 +10,16 @@ pub const WIDTH: f32 = 190.0;
 pub const HEIGHT: f32 = 30.0;
 pub const PADDING: f32 = 10.0;
 
+type ButtonLabel = String;
+type ButtonIndex = usize;
+
+#[derive(Debug)]
 pub struct GameControls {
     buttons: Vec<String>,
 }
 
 impl GameControls {
-    pub fn new(config: &Config) -> GameControls {
+    pub fn new(config: &Config) -> Self {
         let buttons = config
             .levels
             .iter()
@@ -27,7 +31,7 @@ impl GameControls {
 
     pub fn draw(&self) {
         let full_height = HEIGHT + PADDING;
-        let (top_margin, left_margin) = self.get_margins();
+        let (top_margin, left_margin) = self.calculate_margins();
 
         let mut ui = root_ui();
         self.buttons.iter().enumerate().for_each(|(i, button)| {
@@ -39,9 +43,9 @@ impl GameControls {
         });
     }
 
-    pub fn handle_input(&self, pos: Vector2<f32>) -> Option<(usize, String)> {
+    pub fn handle_input(&self, pos: Vector2<f32>) -> Option<(ButtonIndex, ButtonLabel)> {
         let full_height = HEIGHT + PADDING;
-        let (top_margin, left_margin) = self.get_margins();
+        let (top_margin, left_margin) = self.calculate_margins();
 
         self.buttons
             .iter()
@@ -55,7 +59,7 @@ impl GameControls {
             .map(|(index, button)| (index, button.clone()))
     }
 
-    fn get_margins(&self) -> (f32, f32) {
+    fn calculate_margins(&self) -> (f32, f32) {
         let full_height = HEIGHT + PADDING;
         let all_buttons_height = (self.buttons.len() as f32) * full_height;
         let top_margin = (screen_height() - all_buttons_height) / 2.0;

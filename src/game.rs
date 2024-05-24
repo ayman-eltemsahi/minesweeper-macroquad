@@ -77,7 +77,7 @@ impl Game {
 
         let mut rng = rand::thread_rng();
 
-        self.tiles = vec![Tile::new(false); (rows * cols) as usize];
+        self.tiles = vec![Default::default(); (rows * cols) as usize];
 
         (0..num_of_mines).for_each(|_| {
             let index = rand_num(0, rows * cols, &mut rng, |idx| {
@@ -193,7 +193,7 @@ impl Game {
             return None;
         }
 
-        let scaled = transformed.flip().div_val(tile_size);
+        let scaled = transformed.flip().scale(1.0 / tile_size);
         let result = Vector2::new(scaled.x as i32, scaled.y as i32);
 
         if self.within_bounds(result) {
@@ -234,7 +234,7 @@ impl Game {
                 let flipped_pos: Vector2<f32> = pos.flip().into();
 
                 self.tiles[index].draw(
-                    margin.add(flipped_pos.mult_val(tile_size)),
+                    margin.add(flipped_pos.scale(tile_size)),
                     tile_size - 1.0,
                     &self.textures,
                 );

@@ -1,5 +1,4 @@
 use macroquad::{
-    color::{Color, BLACK, LIGHTGRAY, RED, SKYBLUE, WHITE},
     math::Vec2,
     shapes::draw_rectangle,
     text::draw_text,
@@ -8,16 +7,20 @@ use macroquad::{
 
 use crate::{game_textures::GameTextures, vector2::Vector2};
 
-pub const HIDDEN_COLOR: Color = SKYBLUE;
-pub const MINE_COLOR: Color = WHITE;
-pub const MINE_BACKGROUND_COLOR: Color = RED;
-pub const FLAG_BACKGROUND_COLOR: Color = HIDDEN_COLOR;
-pub const NO_MINE_COLOR: Color = LIGHTGRAY;
-pub const TEXT_COLOR: Color = BLACK;
+mod consts {
+    use macroquad::color::{Color, BLACK, LIGHTGRAY, RED, SKYBLUE, WHITE};
 
-const DIGITS: &'static [&str] = &["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"];
+    pub const HIDDEN_COLOR: Color = SKYBLUE;
+    pub const MINE_COLOR: Color = WHITE;
+    pub const MINE_BACKGROUND_COLOR: Color = RED;
+    pub const FLAG_BACKGROUND_COLOR: Color = HIDDEN_COLOR;
+    pub const NO_MINE_COLOR: Color = LIGHTGRAY;
+    pub const TEXT_COLOR: Color = BLACK;
 
-#[derive(Debug, Clone, PartialEq)]
+    pub const DIGITS: &[&str] = &["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"];
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum TileState {
     Hidden,
     Flagged,
@@ -31,45 +34,41 @@ pub struct Tile {
     pub num_mines_around: i32,
 }
 
-impl Tile {
-    pub fn new(has_mine: bool) -> Tile {
+impl Default for Tile {
+    fn default() -> Self {
         Tile {
-            has_mine,
+            has_mine: false,
             state: TileState::Hidden,
             num_mines_around: 0,
         }
     }
+}
 
+impl Tile {
     pub fn update_num_mines_around(&mut self, num_mines_around: i32) {
         self.num_mines_around = num_mines_around;
     }
 
     pub fn draw(&self, pos: Vector2<f32>, size: f32, textures: &GameTextures) {
         let color = match self.state {
-            TileState::Hidden => FLAG_BACKGROUND_COLOR,
-            TileState::Flagged => FLAG_BACKGROUND_COLOR,
-            TileState::Revealed => match self.has_mine {
-                true => MINE_BACKGROUND_COLOR,
-                false => NO_MINE_COLOR,
-            },
+            TileState::Hidden => consts::HIDDEN_COLOR,
+            TileState::Flagged => consts::FLAG_BACKGROUND_COLOR,
+            TileState::Revealed if self.has_mine => consts::MINE_BACKGROUND_COLOR,
+            _ => consts::NO_MINE_COLOR,
         };
 
         draw_rectangle(pos.x, pos.y, size, size, color);
 
-        let texture = if self.state == TileState::Revealed && self.has_mine {
-            Some(&textures.bomb)
-        } else if self.state == TileState::Flagged {
-            Some(&textures.flag)
-        } else {
-            None
-        };
-
-        if let Some(texture) = texture {
+        if let Some(texture) = match self.state {
+            TileState::Flagged => Some(&textures.flag),
+            TileState::Revealed if self.has_mine => Some(&textures.bomb),
+            _ => None,
+        } {
             draw_texture_ex(
                 texture,
                 pos.x,
                 pos.y,
-                MINE_COLOR,
+                consts::MINE_COLOR,
                 Tile::get_texture_params(size),
             );
         }
@@ -79,11 +78,11 @@ impl Tile {
                 .add_val(size / 2.0)
                 .add(Vector2::new(-size / 5.0, size / 5.0));
             draw_text(
-                DIGITS[self.num_mines_around as usize],
+                consts::DIGITS[self.num_mines_around as usize],
                 text_pos.x,
                 text_pos.y,
                 size,
-                TEXT_COLOR,
+                consts::TEXT_COLOR,
             );
         }
     }

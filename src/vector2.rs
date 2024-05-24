@@ -39,7 +39,7 @@ where
         }
     }
 
-    pub fn mult_val(&self, val: T) -> Vector2<T> {
+    pub fn scale(&self, val: T) -> Vector2<T> {
         Vector2 {
             x: self.x * val,
             y: self.y * val,
@@ -50,13 +50,6 @@ where
         Vector2 {
             x: self.x / other.x,
             y: self.y / other.y,
-        }
-    }
-
-    pub fn div_val(&self, val: T) -> Vector2<T> {
-        Vector2 {
-            x: self.x / val,
-            y: self.y / val,
         }
     }
 

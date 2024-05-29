@@ -14,26 +14,24 @@ use config::Config;
 use diagnostics::Diagnostics;
 use game::{Game, GameState};
 use macroquad::prelude::{clear_background, next_frame, WHITE};
-use mouse::Mouse;
+use mouse::{is_mouse_left_btn_pressed, is_mouse_right_btn_pressed};
 
 #[macroquad::main("Minesweeper")]
 async fn main() {
     let mut game = Game::new(grid::Grid::new()).await;
 
     let mut diagnostics = Diagnostics::new();
-    let mut mouse = Mouse::new();
 
     let config = Config::new();
     let controls = game_controls::GameControls::new(&config);
 
     loop {
         clear_background(WHITE);
-        mouse.update();
 
         match game.get_state() {
             GameState::NotStarted | GameState::GameOver | GameState::GameWon => {
                 controls.draw();
-                if let Some(pos) = mouse.is_left_key_up_same_pos() {
+                if let Some(pos) = is_mouse_left_btn_pressed() {
                     match controls.handle_input(pos) {
                         Some((index, _level)) => {
                             let level = &config.levels[index];
@@ -44,9 +42,9 @@ async fn main() {
                 }
             }
             GameState::Playing => {
-                if let Some(pos) = mouse.is_left_key_up_same_pos() {
+                if let Some(pos) = is_mouse_left_btn_pressed() {
                     game.make_move(pos);
-                } else if let Some(pos) = mouse.is_right_key_up_same_pos() {
+                } else if let Some(pos) = is_mouse_right_btn_pressed() {
                     game.mark_tile(pos);
                 }
             }

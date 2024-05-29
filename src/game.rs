@@ -42,7 +42,6 @@ pub enum GameState {
 #[derive(Debug)]
 pub struct Game {
     pub dimensions: Vector2<i32>,
-    pub tile_size: f32,
     pub start_time: i64,
     pub end_time: i64,
     tiles: Vec<Tile>,
@@ -63,7 +62,6 @@ impl Game {
 
         Game {
             dimensions: Vector2::new(0, 0),
-            tile_size: 0.0,
             tiles: Vec::new(),
             start_time: 0,
             end_time: 0,

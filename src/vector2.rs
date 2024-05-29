@@ -61,16 +61,6 @@ impl<T> Vector2<T> {
         }
     }
 
-    pub fn flip(&self) -> Self
-    where
-        T: Copy,
-    {
-        Vector2 {
-            x: self.y,
-            y: self.x,
-        }
-    }
-
     pub fn min_component(&self) -> T
     where
         T: PartialOrd + Copy,
@@ -88,6 +78,15 @@ impl From<Vector2<i32>> for Vector2<f32> {
         Vector2 {
             x: v.x as f32,
             y: v.y as f32,
+        }
+    }
+}
+
+impl From<Vector2<f32>> for Vector2<i32> {
+    fn from(v: Vector2<f32>) -> Self {
+        Vector2 {
+            x: v.x as i32,
+            y: v.y as i32,
         }
     }
 }

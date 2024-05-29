@@ -1,10 +1,10 @@
 use std::collections::VecDeque;
 
+use macroquad::window::{screen_height, screen_width};
 use rand::{rngs::ThreadRng, Rng};
 
 use crate::{
     game_textures::GameTextures,
-    grid::Grid,
     messages::{write_game_over, write_remaining_mines, write_time, write_you_win},
     tile::{Tile, TileState},
     utils::current_time_seconds,
@@ -21,6 +21,13 @@ const NEIGHBORS: &[Vector2<i32>] = &[
     Vector2::new(1, -1),
     Vector2::new(-1, 1),
 ];
+
+mod margins {
+    pub const TOP: f32 = 60.0;
+    pub const BOTTOM: f32 = 20.0;
+    pub const LEFT: f32 = 10.0;
+    pub const RIGHT: f32 = 10.0;
+}
 
 fn rand_num(from: i32, to: i32, rng: &mut ThreadRng, pred: impl Fn(i32) -> bool) -> usize {
     loop {
@@ -41,7 +48,8 @@ pub enum GameState {
 
 #[derive(Debug)]
 pub struct Game {
-    pub dimensions: Vector2<i32>,
+    pub rows: i32,
+    pub cols: i32,
     pub start_time: i64,
     pub end_time: i64,
     tiles: Vec<Tile>,
@@ -51,23 +59,21 @@ pub struct Game {
 
     state: GameState,
 
-    grid: Grid,
-
     textures: GameTextures,
 }
 
 impl Game {
-    pub async fn new(grid: Grid) -> Game {
+    pub async fn new() -> Game {
         let textures = GameTextures::new().await;
 
         Game {
-            dimensions: Vector2::new(0, 0),
+            rows: 0,
+            cols: 0,
             tiles: Vec::new(),
             start_time: 0,
             end_time: 0,
             initial_mines_count: 0,
             marked_mines_count: 0,
-            grid,
 
             state: GameState::NotStarted,
 
@@ -76,7 +82,8 @@ impl Game {
     }
 
     pub fn start(&mut self, rows: i32, cols: i32, num_of_mines: i32) {
-        self.dimensions = Vector2::new(rows, cols);
+        self.rows = rows;
+        self.cols = cols;
         self.start_time = current_time_seconds();
         self.state = GameState::Playing;
 
@@ -192,13 +199,12 @@ impl Game {
 
     fn resolve_tile_position(&mut self, pos: Vector2<f32>) -> Option<(Vector2<i32>, usize)> {
         let tile_size = self.get_tile_size();
-        let transformed = pos.sub(self.grid.body.pos());
+        let transformed = pos.sub(Vector2::new(margins::LEFT, margins::TOP));
         if transformed.x < 0.0 || transformed.y < 0.0 {
             return None;
         }
 
-        let scaled = transformed.flip().scale(1.0 / tile_size);
-        let result = Vector2::new(scaled.x as i32, scaled.y as i32);
+        let result = transformed.scale(1.0 / tile_size).into();
 
         if self.within_bounds(result) {
             Some((result, self.get_index(result)))
@@ -220,8 +226,8 @@ impl Game {
         }
 
         match self.state {
-            GameState::GameOver => write_game_over(&self.grid.header),
-            GameState::GameWon => write_you_win(&self.grid.header),
+            GameState::GameOver => write_game_over(),
+            GameState::GameWon => write_you_win(),
             _ => {}
         }
     }
@@ -229,16 +235,14 @@ impl Game {
     fn draw_tiles(&self) {
         let tile_size = self.get_tile_size();
 
-        let margin = self.grid.body.pos();
-
-        for i in 0..self.dimensions.x {
-            for j in 0..self.dimensions.y {
-                let pos = Vector2::new(i, j);
-                let index = self.get_index(pos);
-                let flipped_pos: Vector2<f32> = pos.flip().into();
+        for i in 0..self.cols {
+            for j in 0..self.rows {
+                let pos: Vector2<f32> = Vector2::new(i, j).into();
+                let index = self.get_index(pos.into());
 
                 self.tiles[index].draw(
-                    margin.add(flipped_pos.scale(tile_size)),
+                    pos.scale(tile_size)
+                        .add(Vector2::new(margins::LEFT, margins::TOP)),
                     tile_size - 1.0,
                     &self.textures,
                 );
@@ -247,10 +251,7 @@ impl Game {
     }
 
     fn write_remaining_mines(&self) {
-        write_remaining_mines(
-            self.initial_mines_count - self.marked_mines_count,
-            &self.grid.header,
-        );
+        write_remaining_mines(self.initial_mines_count - self.marked_mines_count);
     }
 
     fn write_time(&self) {
@@ -259,7 +260,7 @@ impl Game {
             _ => current_time_seconds(),
         };
 
-        write_time(self.start_time, end_time, &self.grid.header);
+        write_time(self.start_time, end_time);
     }
 
     fn clear_empty_neighbours(&mut self, pos: Vector2<i32>) {
@@ -291,8 +292,8 @@ impl Game {
     }
 
     fn update_mines_count(&mut self) {
-        for i in 0..self.dimensions.x {
-            for j in 0..self.dimensions.y {
+        for i in 0..self.cols {
+            for j in 0..self.rows {
                 let pos = Vector2::new(i, j);
                 let count = self.count_mines_around(pos);
                 let index = self.get_index(pos);
@@ -334,18 +335,18 @@ impl Game {
     }
 
     fn get_tile_size(&self) -> f32 {
-        self.grid
-            .body
-            .screen_size()
-            .div(self.dimensions.flip().into())
+        Vector2::new(screen_width(), screen_height())
+            .sub(Vector2::new(margins::LEFT, margins::TOP))
+            .sub(Vector2::new(margins::RIGHT, margins::BOTTOM))
+            .div(Vector2::new(self.cols, self.rows).into())
             .min_component()
     }
 
     fn within_bounds(&self, coord: Vector2<i32>) -> bool {
-        coord.x >= 0 && coord.y >= 0 && coord.x < self.dimensions.x && coord.y < self.dimensions.y
+        coord.x >= 0 && coord.y >= 0 && coord.x < self.cols && coord.y < self.rows
     }
 
     fn get_index(&self, pos: Vector2<i32>) -> usize {
-        (pos.x as usize * self.dimensions.y as usize) + pos.y as usize
+        (pos.y as usize * self.cols as usize) + pos.x as usize
     }
 }
